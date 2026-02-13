@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobNova - Mock LinkedIn Interface</title>
+    <link rel="stylesheet" href="extension/assistant.css">
+    <style>
+        body {
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Fira Sans", Ubuntu, Oxygen, "Oxygen Sans", Cantarell, "Droid Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Lucida Grande", Helvetica, Arial, sans-serif;
+            background-color: #f3f2ef;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding-top: 50px;
+        }
+        .msg-overlay-conversation-bubble {
+            width: 400px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.08), 0 4px 4px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+        .msg-entity-lockup__entity-title {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            font-weight: 600;
+        }
+        .msg-s-message-list {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+        }
+        .msg-s-message-list__event {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            font-size: 14px;
+        }
+        .msg-s-message-list__event--other {
+            background-color: #f3f2ef;
+            align-self: flex-start;
+        }
+        .msg-s-message-list__event--me {
+            background-color: #0a66c2;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .msg-form {
+            padding: 12px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+        }
+        .msg-form__contenteditable {
+            border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 4px;
+            padding: 8px;
+            min-height: 60px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .msg-form__footer-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        .send-button {
+            background-color: #0a66c2;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="msg-overlay-conversation-bubble">
+        <div class="msg-entity-lockup__entity-title">
+            Jane Doe
+        </div>
+        
+        <div class="msg-s-message-list">
+            <div class="msg-s-message-list__event msg-s-message-list__event--other">
+                Hi there! I saw your profile and was impressed by your experience with Python. We have an opening for a Senior Backend Engineer at TechCorp. Would you be interested in chatting?
+            </div>
+        </div>
+
+        <div class="msg-form">
+            <div class="msg-form__contenteditable" contenteditable="true" data-placeholder="Write a message..."></div>
+            <div class="msg-form__footer-actions">
+                <button class="send-button">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Chrome Runtime
+        window.chrome = {
+            runtime: {
+                sendMessage: (msg, callback) => {
+                    console.log("Message sent to backend:", msg);
+                    setTimeout(() => {
+                        callback({
+                            data: {
+                                analysis: "Recruiter is offering a Senior Backend Engineer role. Likely personalized.",
+                                company_research: "TechCorp recently raised Series B funding. High growth.",
+                                suggested_reply: "Hi Jane,\n\nThanks for reaching out! I'm definitely interested in learning more about the Senior Backend Engineer role at TechCorp. I've been following the company's recent growth with interest.\n\nCould you share a bit more about the tech stack you're using?\n\nBest,\n[Your Name]"
+                            }
+                        });
+                    }, 1500);
+                }
+            }
+        };
+    </script>
+    <script src="extension/content.js"></script>
+</body>
+</html>
