@@ -1,0 +1,1 @@
+{"jd": "Senior Backend Engineer. Must have Python, FastAPI, PostgreSQL, Kubernetes. Nice to have LLMs, RAG.", "expected_match_min": 70, "expected_missing": ["Kubernetes"], "notes": "evidence based only"}

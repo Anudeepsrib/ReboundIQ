@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.7.4-pg16
+    environment:
+      POSTGRES_USER: reboundiq
+      POSTGRES_PASSWORD: reboundiq_dev
+      POSTGRES_DB: reboundiq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reboundiq -d reboundiq"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # On Windows/CPU: pull small model manually or via entry in api
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: reboundiq
+      MINIO_ROOT_PASSWORD: reboundiqminio123
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://reboundiq:reboundiq_dev@postgres:5432/reboundiq
+      - REDIS_URL=redis://redis:6379/0
+      - AI_PROVIDER=ollama
+      - AI_CHAT_MODEL=llama3.2:1b
+      - AI_EMBEDDING_MODEL=nomic-embed-text
+      - AI_BASE_URL=http://ollama:11434
+      - ENABLE_EXTERNAL_AI=false
+      - STORAGE_BACKEND=local
+      - STORAGE_LOCAL_ROOT=/app/storage
+      - JWT_SECRET=dev-jwt-secret-change-in-prod-please
+      - ENCRYPTION_KEY=dev-fernet-32bytes-key-please-change
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=reboundiq
+      - S3_SECRET_KEY=reboundiqminio123
+      - S3_BUCKET=reboundiq-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./apps/api:/app
+      - storage:/app/storage
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://reboundiq:reboundiq_dev@postgres:5432/reboundiq
+      - REDIS_URL=redis://redis:6379/0
+      - AI_PROVIDER=ollama
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./apps/api:/app
+      - storage:/app/storage
+    command: celery -A app.workers.celery_app worker --loglevel=info
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  pgdata:
+  redisdata:
+  ollamadata:
+  miniodata:
+  storage:

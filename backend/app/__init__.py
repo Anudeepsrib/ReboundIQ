@@ -1,1 +1,0 @@
-"""Stillpoint Backend App Package"""
