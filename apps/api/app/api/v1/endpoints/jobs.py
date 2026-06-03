@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from app.ai.gateway import gateway
+from app.core.security import get_current_user
 
 router = APIRouter()
 
@@ -27,7 +28,11 @@ class MatchResult(BaseModel):
 
 
 @router.post("/analyze", response_model=MatchResult)
-async def analyze_jd(req: JDAnalyzeRequest, user_id: str = "demo-user"):
+async def analyze_jd(
+    req: JDAnalyzeRequest, current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user["id"]
+    # Isolation + audit: user_id from JWT used for all downstream (RAG later, logs)
     jd = req.jd_text.strip()
     if len(jd) < 50:
         raise HTTPException(400, "JD too short")

@@ -5,6 +5,7 @@ import structlog
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.api.v1.router import api_router
+from app.core import security  # PR-3: JWT + get_current_user + blacklist + owner checks (loaded for deps)
 
 setup_logging()
 
