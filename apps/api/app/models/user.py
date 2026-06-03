@@ -1,28 +1,26 @@
-from sqlalchemy import String, Boolean, DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
-from datetime import datetime
-import uuid
+from __future__ import annotations
+
+from sqlalchemy import String, Boolean
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base, IdMixin, TimestampMixin
 
 
-class Base(DeclarativeBase):
-    pass
-
-
-class User(Base):
+class User(Base, IdMixin, TimestampMixin):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+
+    # Relations (stubs for profile etc; full in later PRs)
+    profile: Mapped["UserProfile | None"] = relationship(  # noqa: F821
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    resumes: Mapped[list["Resume"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
     )
 
-    # TODO: profile relation, consent_records, sensitive_profile_fields (encrypted)
+    # TODO: consent_records, sensitive_profile_fields (encrypted) - see design
+    # agent_campaigns, memory_records etc via user_id (no backref needed for stubs)

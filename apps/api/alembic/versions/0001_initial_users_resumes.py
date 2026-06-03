@@ -77,7 +77,8 @@ def upgrade():
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
         ),
     )
-    # TODO: later migrations add jobs, applications, agent_campaigns, memory_records, ai_requests, consents, etc.
+    # Common fields + agent/memory tables (agent_campaigns, memory_records + related, ai_requests, consents, profiles) added in 0002 (PR-2).
+    # Later: jobs, applications, documents, full audit etc.
 
 
 def downgrade():
