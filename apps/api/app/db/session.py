@@ -1,30 +1,18 @@
-"""Async SQLAlchemy session factory and FastAPI dependency.
-
-Usage:
-- from app.db.session import get_db
-- async with session: ...
-
-Models must be imported (side-effect registers with Base.metadata) before
-using target_metadata in Alembic or creating tables.
+"""Async SQLAlchemy 2.0 session factory + deps.
+- Lazy connect (engine created at import, first use connects).
+- All queries in services/endpoints MUST filter by user_id for isolation.
+- Used by resume service for Resume + DocumentChunk persistence in PR-7.
 """
 
-from __future__ import annotations
-
 from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
     create_async_engine,
+    async_sessionmaker,
+    AsyncSession,
 )
-from sqlalchemy import create_engine
-
+from contextlib import asynccontextmanager
 from app.core.config import settings
 
-# Ensure all models are registered with Base.metadata (import order matters)
-# This side-effect populates metadata for Alembic env.py (which imports from app.models)
-import app.models  # noqa: F401  # registers User, Resume*, AgentCampaign*, Memory* etc
-
-from .base import Base  # re-export for convenience
-
+# Note: DATABASE_URL must use +asyncpg (set in env/compose)
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=(settings.ENV == "development"),
@@ -35,26 +23,24 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,
-    class_=AsyncSession,
 )
 
 
-# FastAPI dependency
 async def get_db() -> AsyncSession:
+    """FastAPI Depends() generator for request-scoped sessions."""
     async with AsyncSessionLocal() as session:
         yield session
 
 
-# Sync engine for Alembic (see alembic/env.py override) or one-off scripts
-def get_sync_engine():
-    url = settings.DATABASE_URL.replace("+asyncpg", "+psycopg2")
-    return create_engine(url, future=True)
-
-
-__all__ = [
-    "Base",
-    "engine",
-    "AsyncSessionLocal",
-    "get_db",
-    "get_sync_engine",
-]
+@asynccontextmanager
+async def get_db_context():
+    """Manual context for services / non-request code (e.g. background). Commits on success."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
