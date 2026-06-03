@@ -1,0 +1,42 @@
+# Docker build context ignore for apps/web (Next.js)
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Env / secrets
+.env
+.env.*
+.env.local
+secrets/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs / caches
+*.log
+*.tmp
+npm-debug.log*
+
+# Docs / large unrelated
+*.md
+ag-skills-OJ3ScM/
+
+# Docker self
+Dockerfile
+.dockerignore
+
+# Test / dev artifacts
+coverage/
+jest/

@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional, Literal
-import os
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "ReboundIQ API"
@@ -14,7 +14,17 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
 
     # AI Gateway (local-first)
-    AI_PROVIDER: Literal["ollama", "vllm", "openai", "anthropic", "gemini", "groq", "litellm", "azure", "bedrock"] = "ollama"
+    AI_PROVIDER: Literal[
+        "ollama",
+        "vllm",
+        "openai",
+        "anthropic",
+        "gemini",
+        "groq",
+        "litellm",
+        "azure",
+        "bedrock",
+    ] = "ollama"
     AI_CHAT_MODEL: str = "llama3.2:1b"
     AI_EMBEDDING_MODEL: str = "nomic-embed-text"
     AI_BASE_URL: str = "http://localhost:11434"
@@ -58,10 +68,8 @@ class Settings(BaseSettings):
     FEATURE_VISA_MODE: bool = True
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
+
 
 settings = Settings()

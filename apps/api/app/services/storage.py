@@ -1,11 +1,12 @@
 import aiofiles
-import os
 from pathlib import Path
 from typing import Protocol
+
 
 class Storage(Protocol):
     async def save(self, key: str, data: bytes, content_type: str) -> str: ...
     async def get(self, key: str) -> bytes: ...
+
 
 class LocalStorage:
     def __init__(self, root: str = "./storage"):
@@ -20,7 +21,9 @@ class LocalStorage:
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
 
-    async def save(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
+    async def save(
+        self, key: str, data: bytes, content_type: str = "application/octet-stream"
+    ) -> str:
         p = self._safe_path(key)
         async with aiofiles.open(p, "wb") as f:
             await f.write(data)

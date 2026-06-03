@@ -8,13 +8,20 @@ from app.api.v1.router import api_router
 
 setup_logging()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: check connections etc (ollama health in compose)
     logger = structlog.get_logger()
-    logger.info("app.startup", version=settings.VERSION, env=settings.ENV, ai_provider=settings.AI_PROVIDER)
+    logger.info(
+        "app.startup",
+        version=settings.VERSION,
+        env=settings.ENV,
+        ai_provider=settings.AI_PROVIDER,
+    )
     yield
     logger.info("app.shutdown")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -32,6 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Request ID middleware (observability)
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
@@ -41,16 +49,20 @@ async def add_request_id(request: Request, call_next):
     response.headers["x-request-id"] = rid
     return response
 
+
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": settings.VERSION, "ai": settings.AI_PROVIDER}
 
+
 @app.get("/ready")
 async def ready():
     # TODO: check DB, redis, ollama /api/tags
     return {"status": "ready"}
+
 
 @app.get("/")
 async def root():

@@ -1,0 +1,42 @@
+# Pre-commit hooks for ReboundIQ monorepo
+# Install: pip install pre-commit && pre-commit install
+# Run: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.7
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.9.0
+    hooks:
+      - id: eslint
+        files: \.(ts|tsx|js|jsx)$
+        additional_dependencies:
+          - eslint@^9
+          - eslint-config-next@15.0.0
+        args: ["--max-warnings=0"]
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.3.3
+    hooks:
+      - id: prettier
+        files: \.(js|jsx|ts|tsx|json|css|scss|md|yml|yaml)$
+        args: ["--check"]  # change to --write for auto in hook? use format on commit via config
+
+ci:
+  autofix_prs: true

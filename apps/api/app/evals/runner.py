@@ -2,9 +2,11 @@
 Run: python -m app.evals.runner --suite all
 Stores results in evals/results/
 """
+
 import json
 from pathlib import Path
 import argparse
+
 
 def run_suite(suite: str = "all"):
     results_dir = Path("evals/results")
@@ -14,17 +16,24 @@ def run_suite(suite: str = "all"):
         "suite": suite,
         "timestamp": "2026-...",
         "cases": [
-            {"name": "resume_parse_fidelity", "status": "PASS", "notes": "stub - full in PR-19"},
+            {
+                "name": "resume_parse_fidelity",
+                "status": "PASS",
+                "notes": "stub - full in PR-19",
+            },
             {"name": "jd_match_grounded", "status": "PASS", "score": 0.81},
             {"name": "redaction_ssn", "status": "PASS"},
             {"name": "compliance_block_fabrication", "status": "PASS"},
         ],
-        "summary": "Vertical slice evals green. Expand with real gateway calls + golden jsonl."
+        "summary": "Vertical slice evals green. Expand with real gateway calls + golden jsonl.",
     }
     out = results_dir / f"run-{suite}.json"
     out.write_text(json.dumps(sample, indent=2))
     print("Eval results written to", out)
-    print("In full: load goldens, call gateway, LLM-judge (local only), persist to eval_runs table.")
+    print(
+        "In full: load goldens, call gateway, LLM-judge (local only), persist to eval_runs table."
+    )
+
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()

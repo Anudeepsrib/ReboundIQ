@@ -40,6 +40,18 @@ build/
 .design/
 *.md.tmp
 
+# Large external (ag-skills catalog is not part of ReboundIQ)
+ag-skills-OJ3ScM/
+
+# Ruff / lint caches
+.ruff_cache/
+.ruff/
+
+# Eval results (generated)
+**/evals/results/
+**/eval_runs/
+
+
 # Python caches (ensure)
 **/__pycache__/
 **/*.pyc
