@@ -109,13 +109,6 @@ reboundiq/
 └── README.md
 ```
 
-## Current Status (Post Git Ignore Cleanup)
-- Monorepo structure complete.
-- Core vertical slice functional: resume upload + parse + versioned rewrites, JD analyzer + evidence match + drafts with citations, AI provider settings + consent gate + redaction preview, basic dashboard + risk signals, auth stub, storage abstraction, local Ollama default.
-- Deep Agent + Hindsight Memory layers fully specified in design + early code scaffolding.
-- All 42 spec points addressed in architecture + implementation order (updated 20-step plan prioritizing memory + agents after foundations).
-- `git ignore` run over the repo: legacy JobNova code archived to `legacy-jobnova/`, all `__pycache__`, `.env`, `storage/`, `.design/`, `ag-skills-OJ3ScM/`, etc. properly ignored and cleaned from index. Only intentional new files + the pivot are tracked.
-- Full production deployment assets, comprehensive tests/evals, and remaining modules (full tracker, proof, outreach, interview loops, offer negotiation, complete Deep Agent supervisor + 7 subagents, Hindsight adapter, campaign UI, retrospectives, etc.) follow the PR plan in `.design/design-doc-*.md`.
 
 ## Important Disclaimers
 **This software provides planning guidance and risk signals only.**  
