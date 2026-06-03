@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import structlog
@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.api.v1.router import api_router
 from app.core import security  # PR-3: JWT + get_current_user + blacklist + owner checks (loaded for deps)
+from app.core.middleware import add_request_id  # PR-4 request id + observability for gateway/audit
 
 setup_logging()
 
@@ -40,16 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# Request ID middleware (observability)
-@app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    rid = request.headers.get("x-request-id", "dev-" + str(hash(request.url.path)))
-    request.state.request_id = rid
-    response = await call_next(request)
-    response.headers["x-request-id"] = rid
-    return response
-
+# Request ID middleware (observability) - from core for PR-4 propagation to gateway/audit
+app.middleware("http")(add_request_id)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

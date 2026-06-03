@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from app.core.config import settings
 from app.ai.gateway import gateway
@@ -47,15 +47,19 @@ async def consent_external(req: ConsentRequest):
 
 
 @router.post("/test")
-async def test_connection():
+async def test_connection(request: Request):
+    rid = getattr(request.state, "request_id", None)
     try:
         res = await gateway.chat(
-            [{"role": "user", "content": "Reply with OK only."}], max_tokens=5
+            [{"role": "user", "content": "Reply with OK only."}],
+            max_tokens=5,
+            request_id=rid,
         )
         return {
             "ok": True,
             "provider": settings.AI_PROVIDER,
             "sample": res["content"][:50],
+            "request_id": rid,
         }
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": str(e), "request_id": rid}
