@@ -81,6 +81,7 @@ def upgrade():
     # Later: jobs, applications, documents, full audit etc.
 
 
+
 def downgrade():
     op.drop_table("resume_versions")
     op.drop_table("resumes")
