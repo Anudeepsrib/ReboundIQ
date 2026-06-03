@@ -2,6 +2,9 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from app.core.config import settings
 from app.ai.gateway import gateway
+from app.ai.memory import (
+    memory_provider,
+)  # PR-6: basic retain/recall wired for RAG/services
 
 router = APIRouter()
 
@@ -18,6 +21,7 @@ class ProviderStatus(BaseModel):
     external_enabled: bool
     local_available: bool
     redaction_enabled: bool
+    memory_provider: str  # PR-6: "postgres+pgvector" | "inmem-fallback"
 
 
 @router.get("/status", response_model=ProviderStatus)
@@ -29,6 +33,11 @@ async def status():
             local_available = bool(h.get("local") and not h.get("error"))
         except Exception:
             local_available = False
+    mem_type = (
+        "postgres+pgvector"
+        if "Postgres" in type(memory_provider).__name__
+        else "inmem-fallback"
+    )
     return {
         "provider": settings.AI_PROVIDER,
         "chat_model": settings.AI_CHAT_MODEL,
@@ -36,6 +45,7 @@ async def status():
         "external_enabled": settings.ENABLE_EXTERNAL_AI,
         "local_available": local_available,
         "redaction_enabled": True,
+        "memory_provider": mem_type,
     }
 
 
@@ -62,11 +72,30 @@ async def test_connection(request: Request):
             max_tokens=5,
             request_id=rid,
         )
+        # PR-6: also smoke memory retain/recall (uses inmem or pg; always user-isolated)
+        mem_id = await memory_provider.retain(
+            user_id="test-conn-user",
+            content="Test memory for provider config: user prefers concise replies.",
+            category="preference",
+            sensitivity="low",
+        )
+        recalled = await memory_provider.recall(
+            user_id="test-conn-user",
+            query="prefers concise",
+            top_k=1,
+            sensitivity_max="low",
+        )
+        mem_ok = len(recalled) > 0 and "concise" in recalled[0]["content"].lower()
         return {
             "ok": True,
             "provider": settings.AI_PROVIDER,
             "sample": res["content"][:50],
             "request_id": rid,
+            "memory_smoke": {
+                "retained": bool(mem_id),
+                "recalled": mem_ok,
+                "count": len(recalled),
+            },
         }
     except Exception as e:
         return {"ok": False, "error": str(e), "request_id": rid}

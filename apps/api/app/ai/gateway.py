@@ -17,6 +17,16 @@ from .redaction import redaction_service
 from .providers.ollama import OllamaProvider
 # from app.models.ai_request import AIRequestLog  # model added; insert wired in later slice via DB dep
 
+# LiteLLM for unified external providers (openai, anthropic, groq, gemini, azure, bedrock, custom via litellm proxy etc).
+# Only imported/used on external paths (after consent + redaction gate). Local ollama stays direct.
+try:
+    import litellm  # type: ignore
+
+    # Keep quiet in normal ops; can be overridden via env if needed for debugging specific providers.
+    litellm.set_verbose = False
+except Exception:  # ImportError or runtime issues in some envs
+    litellm = None  # type: ignore
+
 
 class AIGateway:
     def __init__(self):
@@ -76,6 +86,11 @@ class AIGateway:
                 "used_llm_fallback": red_audit.get("used_llm_fallback", False),
             }
 
+        content = ""
+        usage: Dict[str, Any] = {}
+        effective_provider = self.provider
+        used_fallback = False
+
         if self.provider == "ollama":
             if self._ollama is None:
                 raise RuntimeError("Ollama provider not initialized")
@@ -89,36 +104,140 @@ class AIGateway:
             content = prov_res["content"]
             usage = prov_res.get("usage", {})
         else:
-            # External path (litellm compat or direct). Redaction already applied above.
-            url = (
-                f"{self.base_url}/v1/chat/completions"
-                if "openai" in self.provider
-                or "litellm" in self.provider
-                or settings.AI_BASE_URL
-                else "https://api.openai.com/v1/chat/completions"
-            )
-            headers: Dict[str, str] = {}
-            if settings.OPENAI_API_KEY and "openai" in self.provider:
-                headers["Authorization"] = f"Bearer {settings.OPENAI_API_KEY}"
-            # In full: litellm.acompletion(...) with fallbacks/retries/circuit
-            payload = {
-                "model": model,
-                "messages": redacted_messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": stream,
-            }
-            resp = await self.client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            usage = data.get("usage", {})
+            # External path: LiteLLM (unified multi-provider) preferred when available.
+            # Redaction + consent gate already enforced above (NON-BYPASSABLE).
+            # Supports: openai, anthropic, groq, gemini, azure, bedrock, litellm proxy, + custom via env.
+            # Fallback: if primary external fails (no key, rate, outage), try AI_FALLBACK_* (local or other).
+            call_succeeded = False
+            attempts = [
+                (self.provider, model, True),
+            ]
+            fb_prov = settings.AI_FALLBACK_PROVIDER
+            if fb_prov:
+                fb_model = settings.AI_FALLBACK_MODEL or model
+                fb_is_ext = fb_prov not in ("ollama", "vllm")
+                attempts.append((fb_prov, fb_model, fb_is_ext))
+
+            for attempt_idx, (att_provider, att_model, att_is_ext) in enumerate(
+                attempts
+            ):
+                if call_succeeded:
+                    break
+                if attempt_idx > 0:
+                    used_fallback = True
+                    effective_provider = att_provider
+                try:
+                    if litellm is not None and att_provider not in ("ollama", "vllm"):
+                        # Preferred unified path for external providers (litellm handles multi + keys from env).
+                        lparams: Dict[str, Any] = {
+                            "model": att_model,
+                            "messages": redacted_messages,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                            # stream handled below in full impl; here we use non-stream + buffer for compat
+                        }
+                        if self.base_url and "api.openai.com" not in self.base_url:
+                            lparams["api_base"] = self.base_url
+                        if stream:
+                            lparams["stream"] = False
+                        resp = await litellm.acompletion(**lparams)
+                        msg = (
+                            resp.choices[0].message
+                            if hasattr(resp, "choices")
+                            else resp["choices"][0]["message"]
+                        )
+                        content = getattr(msg, "content", None) or (
+                            msg.get("content") if isinstance(msg, dict) else ""
+                        )
+                        u = getattr(resp, "usage", None) or (
+                            resp.get("usage") if isinstance(resp, dict) else {}
+                        )
+                        if hasattr(u, "model_dump"):
+                            usage = u.model_dump()
+                        elif isinstance(u, dict):
+                            usage = u
+                        else:
+                            usage = {
+                                "prompt_tokens": getattr(u, "prompt_tokens", 0),
+                                "completion_tokens": getattr(u, "completion_tokens", 0),
+                            }
+                        call_succeeded = True
+                        break
+                    elif att_provider in ("ollama", "vllm"):
+                        # Direct ollama/vllm (even on fallback from external). Reuse original payload logic.
+                        payload = {
+                            "model": att_model,
+                            "messages": redacted_messages,
+                            "stream": False,
+                            "options": {
+                                "temperature": temperature,
+                                "num_predict": max_tokens,
+                            },
+                        }
+                        url = f"{self.base_url}/api/chat"
+                        r = await self.client.post(url, json=payload)
+                        r.raise_for_status()
+                        data = r.json()
+                        content = data.get("message", {}).get("content", "")
+                        usage = {
+                            "prompt_tokens": data.get("prompt_eval_count", 0),
+                            "completion_tokens": data.get("eval_count", 0),
+                        }
+                        call_succeeded = True
+                        break
+                    else:
+                        # Raw compat HTTP for external when no litellm (or as last resort)
+                        url = (
+                            f"{self.base_url}/v1/chat/completions"
+                            if self.base_url
+                            else "https://api.openai.com/v1/chat/completions"
+                        )
+                        headers: Dict[str, str] = {}
+                        if settings.OPENAI_API_KEY and (
+                            "openai" in att_provider or "litellm" in att_provider
+                        ):
+                            headers["Authorization"] = (
+                                f"Bearer {settings.OPENAI_API_KEY}"
+                            )
+                        payload = {
+                            "model": att_model,
+                            "messages": redacted_messages,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                            "stream": False,
+                        }
+                        r = await self.client.post(url, json=payload, headers=headers)
+                        r.raise_for_status()
+                        data = r.json()
+                        content = data["choices"][0]["message"]["content"]
+                        usage = data.get("usage", {})
+                        call_succeeded = True
+                        break
+                except Exception as ex:
+                    logger.warning(
+                        "ai.external.attempt_failed",
+                        extra={
+                            "provider": att_provider,
+                            "model": att_model,
+                            "fallback": attempt_idx > 0,
+                            "error_type": type(ex).__name__,
+                            "error": str(ex)[:180],
+                            "request_id": request_id,
+                        },
+                    )
+                    continue
+
+            if not call_succeeded:
+                raise RuntimeError(
+                    f"All AI providers failed (primary={self.provider}, fallback={settings.AI_FALLBACK_PROVIDER}). "
+                    "Check ENABLE_EXTERNAL_AI, keys in env (never committed), or ollama health."
+                )
 
         latency = (time.time() - start) * 1000
 
         # Always audit every request (local + external). request_id propagated from middleware.
         audit_record = {
-            "provider": self.provider,
+            "provider": effective_provider,
             "model": model,
             "endpoint": "chat",
             "user_id": user_id,
@@ -130,6 +249,8 @@ class AIGateway:
             "redaction_counts": redaction_info.get("counts", {}),
             "metadata": metadata or {},
             "external": is_external,
+            "used_fallback": used_fallback,
+            "primary_provider": self.provider,
         }
         logger.info("ai.chat", extra=audit_record)
         # TODO (next slice): await insert AIRequestLog(..., full_audit_jsonb=audit_record)
@@ -138,7 +259,7 @@ class AIGateway:
             "content": content,
             "usage": usage,
             "latency_ms": latency,
-            "provider": self.provider,
+            "provider": effective_provider,
         }
 
     async def structured(
@@ -205,25 +326,84 @@ class AIGateway:
                 "counts": red_audit.get("redaction_counts", {}),
             }
 
+        emb: List[float] = []
+        effective_provider = self.provider
+        used_fallback = False
+
         if self.provider == "ollama":
             if self._ollama is None:
                 raise RuntimeError("Ollama provider not initialized")
             emb = await self._ollama.embed(red_text, model=model)
         else:
-            # External embed path (e.g. openai /embeddings) - redacted already
-            url = f"{self.base_url}/v1/embeddings"
-            headers = {}
-            if settings.OPENAI_API_KEY and "openai" in self.provider:
-                headers["Authorization"] = f"Bearer {settings.OPENAI_API_KEY}"
-            r = await self.client.post(
-                url, json={"model": model, "input": red_text}, headers=headers
-            )
-            r.raise_for_status()
-            emb = r.json()["data"][0]["embedding"]
+            # External embed via LiteLLM (aembedding) + fallback support. Redaction already done.
+            call_succeeded = False
+            attempts = [(self.provider, model)]
+            fb_prov = settings.AI_FALLBACK_PROVIDER
+            if fb_prov:
+                attempts.append((fb_prov, settings.AI_FALLBACK_MODEL or model))
+            for attempt_idx, (att_provider, att_model) in enumerate(attempts):
+                if call_succeeded:
+                    break
+                if attempt_idx > 0:
+                    used_fallback = True
+                    effective_provider = att_provider
+                try:
+                    if litellm is not None and att_provider not in ("ollama", "vllm"):
+                        eresp = await litellm.aembedding(
+                            model=att_model, input=red_text
+                        )
+                        if hasattr(eresp, "data"):
+                            emb = eresp.data[0].embedding
+                        else:
+                            emb = eresp["data"][0]["embedding"]
+                        call_succeeded = True
+                        break
+                    elif att_provider in ("ollama", "vllm"):
+                        # direct for local fallback
+                        url = f"{self.base_url}/api/embeddings"
+                        r = await self.client.post(
+                            url, json={"model": att_model, "prompt": red_text}
+                        )
+                        r.raise_for_status()
+                        emb = r.json().get("embedding", [])
+                        call_succeeded = True
+                        break
+                    else:
+                        url = f"{self.base_url}/v1/embeddings"
+                        headers = {}
+                        if settings.OPENAI_API_KEY and (
+                            "openai" in att_provider or "litellm" in att_provider
+                        ):
+                            headers["Authorization"] = (
+                                f"Bearer {settings.OPENAI_API_KEY}"
+                            )
+                        r = await self.client.post(
+                            url,
+                            json={"model": att_model, "input": red_text},
+                            headers=headers,
+                        )
+                        r.raise_for_status()
+                        emb = r.json()["data"][0]["embedding"]
+                        call_succeeded = True
+                        break
+                except Exception as ex:
+                    logger.warning(
+                        "ai.embed.attempt_failed",
+                        extra={
+                            "provider": att_provider,
+                            "error_type": type(ex).__name__,
+                            "error": str(ex)[:160],
+                        },
+                    )
+                    continue
+            if not call_succeeded:
+                raise RuntimeError(
+                    f"Embed providers failed (primary={self.provider}, fb={settings.AI_FALLBACK_PROVIDER})"
+                )
 
         latency = (time.time() - start) * 1000
         audit_record = {
-            "provider": self.provider,
+            "provider": effective_provider,
             "model": model,
             "endpoint": "embed",
             "user_id": user_id,
@@ -234,6 +414,8 @@ class AIGateway:
             "consent_used": bool(self.enable_external and is_external),
             "redaction_counts": redaction_info.get("counts", {}),
             "external": is_external,
+            "used_fallback": used_fallback,
+            "primary_provider": self.provider,
         }
         logger.info("ai.embed", extra=audit_record)
 

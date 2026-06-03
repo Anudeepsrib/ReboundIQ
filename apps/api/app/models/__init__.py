@@ -1,4 +1,5 @@
 # SQLAlchemy models package
+<<<<<<< HEAD
 # Base exported so alembic/env.py can do: from app.models import Base
 from app.db.base import Base
 
