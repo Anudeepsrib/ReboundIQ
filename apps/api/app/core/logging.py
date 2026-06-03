@@ -2,6 +2,7 @@ import structlog
 import logging
 import sys
 
+
 def setup_logging():
     logging.basicConfig(
         format="%(message)s",
@@ -15,5 +16,6 @@ def setup_logging():
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
     )
+
 
 logger = structlog.get_logger()

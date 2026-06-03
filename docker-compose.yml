@@ -86,6 +86,8 @@ services:
       - S3_ACCESS_KEY=reboundiq
       - S3_SECRET_KEY=reboundiqminio123
       - S3_BUCKET=reboundiq-dev
+      - LANGGRAPH_CHECKPOINTER=postgres
+      - LANGGRAPH_RECURSION_LIMIT=25
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,7 +110,19 @@ services:
       - DATABASE_URL=postgresql+asyncpg://reboundiq:reboundiq_dev@postgres:5432/reboundiq
       - REDIS_URL=redis://redis:6379/0
       - AI_PROVIDER=ollama
+      - AI_CHAT_MODEL=llama3.2:1b
+      - AI_EMBEDDING_MODEL=nomic-embed-text
+      - AI_BASE_URL=http://ollama:11434
+      - ENABLE_EXTERNAL_AI=false
       - CELERY_BROKER_URL=redis://redis:6379/1
+      - JWT_SECRET=dev-jwt-secret-change-in-prod-please
+      - ENCRYPTION_KEY=dev-fernet-32bytes-key-please-change
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=reboundiq
+      - S3_SECRET_KEY=reboundiqminio123
+      - S3_BUCKET=reboundiq-dev
+      - LANGGRAPH_CHECKPOINTER=postgres
+      - LANGGRAPH_RECURSION_LIMIT=25
     depends_on:
       - redis
       - postgres

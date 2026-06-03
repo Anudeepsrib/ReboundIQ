@@ -105,6 +105,8 @@ reboundiq/
 ├── .design/                 # (gitignored) — design docs + PR plan from AI architect loop
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
+├── .pre-commit-config.yaml
+├── .dockerignore (in apps/api/, apps/web/ for build contexts)
 ├── Makefile
 └── README.md
 ```
@@ -116,14 +118,10 @@ It is not legal advice, immigration advice, financial advice, tax advice, or med
 All AI-generated content must be reviewed and edited by a human. Never use unedited output in real applications, messages, or official documents.
 
 ## Documentation
-- `docs/AI_PROVIDER_GUIDE.md`
-- `docs/LOCAL_AI_SETUP.md`
-- `docs/DEPLOYMENT.md`
-- `docs/SECURITY.md`
-- `docs/PRIVACY.md`
-- `docs/EVALUATION.md`
-- `docs/API.md`
-- Full design + PR plan: `.design/design-doc-85a840fd.md` (internal)
+- `docs/LOCAL_AI_SETUP.md` (includes Windows/WSL2, Docker Desktop, Ollama CPU notes)
+- Other guides (AI_PROVIDER_GUIDE.md, SECURITY.md, PRIVACY.md, EVALUATION.md, DEPLOYMENT.md, API.md, AI_PROVIDER_GUIDE.md) added in subsequent PRs per the plan in design.
+- Full design + PR plan: `.design/design-doc-85a840fd.md` (internal, gitignored)
+- See also: `.pre-commit-config.yaml`, `.dockerignore` (per-app), AGENTS.md, Makefile targets.
 
 ## License
 MIT — see LICENSE.

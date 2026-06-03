@@ -1,8 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
-import os
 from datetime import datetime
 from app.core.config import settings
 from app.ai.gateway import gateway
@@ -14,11 +13,13 @@ router = APIRouter()
 
 storage = LocalStorage(root=settings.STORAGE_LOCAL_ROOT)
 
+
 class ResumeOut(BaseModel):
     id: str
     original_filename: str
     created_at: datetime
     has_parsed: bool
+
 
 class ResumeVersionOut(BaseModel):
     id: str
@@ -28,12 +29,16 @@ class ResumeVersionOut(BaseModel):
     ats_score: Optional[float]
     created_at: datetime
 
+
 class JDMatchRequest(BaseModel):
     jd_text: str
     resume_version_id: Optional[str] = None  # or latest
 
+
 @router.post("/upload", response_model=ResumeOut)
-async def upload_resume(file: UploadFile = File(...), user_id: str = "demo-user"):  # TODO: real auth
+async def upload_resume(
+    file: UploadFile = File(...), user_id: str = "demo-user"
+):  # TODO: real auth
     if not file.filename:
         raise HTTPException(400, "No file")
     ext = file.filename.lower().split(".")[-1]
@@ -61,7 +66,9 @@ async def upload_resume(file: UploadFile = File(...), user_id: str = "demo-user"
     # Structured parse via gateway (local model)
     try:
         system = "Extract structured resume info as JSON: name, contact, summary, skills (list), experience (list of {company, title, bullets}), education, certifications, metrics. Be faithful to text. If unclear use null."
-        parsed = await gateway.structured(system, text[:8000], schema={"type": "object"}, user_id=user_id)
+        parsed = await gateway.structured(
+            system, text[:8000], schema={"type": "object"}, user_id=user_id
+        )
     except Exception as e:
         parsed = {"error": str(e), "raw_text_excerpt": text[:500]}
 
@@ -74,11 +81,14 @@ async def upload_resume(file: UploadFile = File(...), user_id: str = "demo-user"
         "id": rid,
         "original_filename": file.filename,
         "created_at": datetime.utcnow(),
-        "has_parsed": bool(parsed and not parsed.get("error"))
+        "has_parsed": bool(parsed and not parsed.get("error")),
     }
 
+
 @router.post("/{resume_id}/versions", response_model=ResumeVersionOut)
-async def create_version(resume_id: str, target_role: str = Form(...), user_id: str = "demo-user"):
+async def create_version(
+    resume_id: str, target_role: str = Form(...), user_id: str = "demo-user"
+):
     # In full: load resume parsed, use gateway.structured to rewrite bullets for role, compute ATS heuristic
     # Stub: return example version
     version = {
@@ -89,14 +99,19 @@ async def create_version(resume_id: str, target_role: str = Form(...), user_id: 
             "summary": f"Experienced professional targeting {target_role} roles. (Grounded in your uploaded resume.)",
             "bullets": [
                 "Led X initiatives resulting in Y% improvement (from your experience).",
-                "Built Z system using A, B, C stack."
+                "Built Z system using A, B, C stack.",
             ],
-            "skills": ["Python", "LLMs", "Distributed Systems"]  # would come from parsed + JD
+            "skills": [
+                "Python",
+                "LLMs",
+                "Distributed Systems",
+            ],  # would come from parsed + JD
         },
         "ats_score": 78.5,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
     }
     return version
+
 
 @router.get("/", response_model=List[ResumeOut])
 async def list_resumes(user_id: str = "demo-user"):

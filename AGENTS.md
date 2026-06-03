@@ -21,7 +21,7 @@ This project must remain production-grade, privacy-first, and safety-compliant.
 - Storage: Use the StorageService protocol. Never delete originals. User-isolated paths.
 - Memory: Always go through MemoryProvider (default Postgres + pgvector). Hindsight only if explicitly enabled + consent per category.
 - Tests/Evals: Golden cases in tests/evals/ and apps/api/app/evals/. Run via make eval. Include groundedness, citation, schema, safety (no forbidden claims), redaction, tool fidelity, compliance block rate.
-- Docker: Named volumes. No host path binds in compose for Win compatibility. pgvector image. Ollama CPU model for dev.
+- Docker: Named volumes. No host path binds in compose for Win compatibility. pgvector image. Ollama CPU model for dev. Include per-app .dockerignore; use .pre-commit-config.yaml (ruff + prettier + basic checks).
 
 ## When Adding Features
 1. Update design doc or note deviation.

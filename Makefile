@@ -2,7 +2,7 @@
 
 help:
 	@echo "ReboundIQ Makefile"
-	@echo "  make dev          - Start full local stack (docker compose up --build)"
+	@echo "  make dev          - Start full local stack (docker compose up -d --build)"
 	@echo "  make backend      - Run API locally (uvicorn, requires services)"
 	@echo "  make frontend     - Run Next dev (npm run dev)"
 	@echo "  make test         - Backend pytest + frontend checks"
@@ -14,7 +14,7 @@ help:
 	@echo "  make clean        - Remove caches, .next, __pycache__ etc"
 
 dev:
-	docker compose up --build
+	docker compose up -d --build
 
 backend:
 	cd apps/api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -28,7 +28,7 @@ test:
 
 lint:
 	cd apps/api && ruff check . && mypy app --ignore-missing-imports || true
-	cd apps/web && npx eslint . --ext .ts,.tsx && npx prettier --check . || true
+	cd apps/web && ESLINT_USE_FLAT_CONFIG=false npx eslint . --ext .ts,.tsx && npx prettier --check . || true
 
 migrate:
 	cd apps/api && alembic upgrade head

@@ -1,0 +1,13 @@
+# Root level docker ignore (affects if any root-context builds; subs have their own)
+.git/
+.design/
+ag-skills-OJ3ScM/
+*.md
+.env
+.env.*
+storage/
+**/__pycache__/
+**/*.pyc
+**/.next/
+**/node_modules/
+**/.ruff_cache/
