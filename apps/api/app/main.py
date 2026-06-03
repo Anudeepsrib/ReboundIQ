@@ -7,6 +7,7 @@ from app.core.logging import setup_logging
 from app.api.v1.router import api_router
 from app.core import security  # PR-3: JWT + get_current_user + blacklist + owner checks (loaded for deps)
 from app.core.middleware import add_request_id  # PR-4 request id + observability for gateway/audit
+from app.ai.gateway import gateway  # PR-5 / ollama default + health
 
 setup_logging()
 
@@ -54,8 +55,18 @@ async def health():
 
 @app.get("/ready")
 async def ready():
-    # TODO: check DB, redis, ollama /api/tags
-    return {"status": "ready"}
+    # Local ollama via gateway (uses /api/tags + model presence for local mode)
+    ai = {"provider": settings.AI_PROVIDER}
+    if settings.AI_PROVIDER == "ollama":
+        h = await gateway.local_health()
+        ai.update(h)
+        ollama_ready = bool(
+            h.get("local") and not h.get("error") and h.get("model_present", False)
+        )
+        status = "ready" if ollama_ready else "degraded"
+    else:
+        status = "ready"
+    return {"status": status, "ai": ai}
 
 
 @app.get("/")

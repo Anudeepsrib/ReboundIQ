@@ -48,13 +48,15 @@ make dev
 # or
 docker compose up --build -d
 
-# First boot: Ollama pulls a small CPU-friendly model (~1-2 GB). This can take 5-15 min on Windows/WSL2/CPU.
+# First boot: Ollama compose entrypoint auto-pulls defaults (llama3.2:1b + nomic-embed-text, ~1-2 GB). Can take 5-15 min on Windows/WSL2/CPU.
+# Healthcheck waits for model in /api/tags; api /ready waits for healthy ollama.
 # Wait for health:
 docker compose ps
 
-# (Optional but recommended) Explicitly pull models
-docker compose exec ollama ollama pull llama3.2:1b
-docker compose exec ollama ollama pull nomic-embed-text
+# (If needed) List models or re-pull:
+# docker compose exec ollama ollama list
+# docker compose exec ollama ollama pull llama3.2:1b
+# Test conn from API: curl http://localhost:8000/api/v1/ai/test-conn
 
 # Seed synthetic demo data (no real PII)
 make seed

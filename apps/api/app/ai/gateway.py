@@ -1,7 +1,8 @@
 """
 Provider-neutral AI Gateway for ReboundIQ.
 ALL AI calls MUST go through here. No direct provider calls in business/services/endpoints.
-Full: chat, structured, embed, rerank (stub), stream (buffered).
+Delegates concrete impl (chat/structured/embed/stream) to providers/ (ollama primary for local).
+Full: chat, structured, embed, rerank (stub), stream.
 Enforces: local-first (ollama default), redaction (non-bypassable) before ANY external,
 consent gate, request_id/user_id propagation, audit to logger + ai_requests model (PR-4).
 """
@@ -13,6 +14,7 @@ from typing import Any, Dict, List, Optional, AsyncIterator
 from app.core.config import settings
 from app.core.logging import logger
 from .redaction import redaction_service
+from .providers.ollama import OllamaProvider
 # from app.models.ai_request import AIRequestLog  # model added; insert wired in later slice via DB dep
 
 
@@ -24,6 +26,11 @@ class AIGateway:
         self.base_url = settings.AI_BASE_URL.rstrip("/")
         self.enable_external = settings.ENABLE_EXTERNAL_AI
         self.client = httpx.AsyncClient(timeout=120.0)
+        self._ollama: Optional["OllamaProvider"] = None
+        if self.provider == "ollama":
+            self._ollama = OllamaProvider(
+                self.base_url, self.chat_model, self.embed_model
+            )
 
     def _is_external(self) -> bool:
         """Local (ollama/vllm on localhost) default; anything else or flag = external."""
@@ -70,41 +77,17 @@ class AIGateway:
             }
 
         if self.provider == "ollama":
-            payload = {
-                "model": model,
-                "messages": redacted_messages,
-                "stream": stream,
-                "options": {"temperature": temperature, "num_predict": max_tokens},
-            }
-            url = f"{self.base_url}/api/chat"
-            resp = await self.client.post(url, json=payload)
-            resp.raise_for_status()
-            if stream:
-                # Buffered support for stream flag (real delta streaming in response layer later).
-                # Consume lines; last message has final.
-                content = ""
-                usage = {"prompt_tokens": 0, "completion_tokens": 0}
-                async for line in resp.aiter_lines():
-                    if line and line.strip():
-                        try:
-                            chunk = json.loads(line)
-                            if "message" in chunk:
-                                content += chunk["message"].get("content", "")
-                            if "prompt_eval_count" in chunk:
-                                usage["prompt_tokens"] = chunk.get(
-                                    "prompt_eval_count", 0
-                                )
-                            if "eval_count" in chunk:
-                                usage["completion_tokens"] = chunk.get("eval_count", 0)
-                        except Exception:
-                            pass
-            else:
-                data = resp.json()
-                content = data.get("message", {}).get("content", "")
-                usage = {
-                    "prompt_tokens": data.get("prompt_eval_count", 0),
-                    "completion_tokens": data.get("eval_count", 0),
-                }
+            if self._ollama is None:
+                raise RuntimeError("Ollama provider not initialized")
+            prov_res = await self._ollama.chat(
+                redacted_messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=stream,
+            )
+            content = prov_res["content"]
+            usage = prov_res.get("usage", {})
         else:
             # External path (litellm compat or direct). Redaction already applied above.
             url = (
@@ -173,8 +156,12 @@ class AIGateway:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        # For Ollama + many local: use prompt engineering + json.loads (robust in real with retries)
-        # For OpenAI: response_format={"type": "json_object", "schema": schema} or tools
+        # Delegate to provider for local (better prompt + fence handling in ollama impl)
+        if self.provider == "ollama":
+            if self._ollama is None:
+                raise RuntimeError("Ollama provider not initialized")
+            return await self._ollama.structured(system, user, schema, model=model)
+        # For external: use chat + parse (or future native json)
         result = await self.chat(
             messages,
             model=model,
@@ -219,10 +206,9 @@ class AIGateway:
             }
 
         if self.provider == "ollama":
-            url = f"{self.base_url}/api/embeddings"
-            r = await self.client.post(url, json={"model": model, "prompt": red_text})
-            r.raise_for_status()
-            emb = r.json().get("embedding", [])
+            if self._ollama is None:
+                raise RuntimeError("Ollama provider not initialized")
+            emb = await self._ollama.embed(red_text, model=model)
         else:
             # External embed path (e.g. openai /embeddings) - redacted already
             url = f"{self.base_url}/v1/embeddings"
@@ -319,9 +305,19 @@ class AIGateway:
         user_id: Optional[str] = None,
         request_id: Optional[str] = None,
     ) -> AsyncIterator[str]:
-        """Streaming chat deltas. For skeleton: yields from buffered chat (real impl uses aiter in provider)."""
-        # In full: use stream=True + yield chunks from ollama ndjson or litellm.
-        # Here delegate + simulate single yield for compat in evals/tests.
+        """Streaming chat deltas. Real deltas for ollama via provider; buffered for others."""
+        if self.provider == "ollama":
+            if self._ollama is None:
+                raise RuntimeError("Ollama provider not initialized")
+            async for delta in self._ollama.stream(
+                messages,
+                model=model or self.chat_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ):
+                yield delta
+            return
+        # Fallback for non-ollama (buffered)
         res = await self.chat(
             messages,
             model=model,
@@ -332,6 +328,44 @@ class AIGateway:
             request_id=request_id,
         )
         yield res.get("content", "")
+
+    async def local_health(self, request_id: Optional[str] = None) -> Dict[str, Any]:
+        """Connection / readiness for local providers (used by /ready, /ai/status, /ai/test-conn).
+        Returns model list etc. Only for ollama path (local mode).
+        """
+        if self.provider != "ollama" or self._ollama is None:
+            return {
+                "provider": self.provider,
+                "local": False,
+                "message": "not local ollama (or not initialized)",
+            }
+        try:
+            models = await self._ollama.list_models()
+            chat_model = self.chat_model
+            embed_model = self.embed_model
+            model_present = any(
+                chat_model in m or m.startswith(chat_model.split(":")[0])
+                for m in models
+            ) or any(
+                embed_model in m or m.startswith(embed_model.split(":")[0])
+                for m in models
+            )
+            return {
+                "provider": self.provider,
+                "local": True,
+                "base_url": self.base_url,
+                "chat_model": chat_model,
+                "embed_model": embed_model,
+                "models": models,
+                "model_present": model_present,
+            }
+        except Exception as e:
+            return {
+                "provider": self.provider,
+                "local": True,
+                "error": str(e)[:300],
+                "base_url": self.base_url,
+            }
 
 
 gateway = AIGateway()
