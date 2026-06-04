@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import List, Optional
 from app.ai.gateway import gateway
@@ -29,7 +29,7 @@ class MatchResult(BaseModel):
 
 @router.post("/analyze", response_model=MatchResult)
 async def analyze_jd(
-    req: JDAnalyzeRequest, current_user: dict = Depends(get_current_user)
+    req: JDAnalyzeRequest, request: Request, current_user: dict = Depends(get_current_user)
 ):
     user_id = current_user["id"]
     # Isolation + audit: user_id from JWT used for all downstream (RAG later, logs)
@@ -53,8 +53,9 @@ async def analyze_jd(
 }
 Be evidence-based only from the provided text. No fabrication."""
 
+    rid = getattr(request.state, "request_id", None)
     extracted = await gateway.structured(
-        system, jd[:6000], schema={"type": "object"}, user_id=user_id
+        system, jd[:6000], schema={"type": "object"}, user_id=user_id, request_id=rid
     )
 
     # Simple match if resume provided (in real use RAG + gateway on combined)
@@ -69,6 +70,7 @@ Be evidence-based only from the provided text. No fabrication."""
         match_prompt,
         schema={"type": "object"},
         user_id=user_id,
+        request_id=rid,
     )
 
     # Merge + safe defaults + disclaimers

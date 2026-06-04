@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends, Request
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
@@ -38,7 +38,7 @@ class JDMatchRequest(BaseModel):
 
 @router.post("/upload", response_model=ResumeOut)
 async def upload_resume(
-    file: UploadFile = File(...),
+    request: Request, file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
@@ -68,10 +68,15 @@ async def upload_resume(
         text = "[DOCX parsed text would go here - stub for slice]"
 
     # Structured parse via gateway (local model)
+    rid = getattr(request.state, "request_id", None)
     try:
         system = "Extract structured resume info as JSON: name, contact, summary, skills (list), experience (list of {company, title, bullets}), education, certifications, metrics. Be faithful to text. If unclear use null."
         parsed = await gateway.structured(
-            system, text[:8000], schema={"type": "object"}, user_id=user_id
+            system,
+            text[:8000],
+            schema={"type": "object"},
+            user_id=user_id,
+            request_id=rid,
         )
     except Exception as e:
         parsed = {"error": str(e), "raw_text_excerpt": text[:500]}
@@ -92,13 +97,18 @@ async def upload_resume(
 @router.post("/{resume_id}/versions", response_model=ResumeVersionOut)
 async def create_version(
     resume_id: str,
+    request: Request,
     target_role: str = Form(...),
     current_user: dict = Depends(get_current_user),
 ):
-    # user_id = current_user["id"]  # ready for owner check
+    user_id = current_user["id"]
+    # user_id ready for owner check
     # TODO: in full load resume by id+owner check: check_owner(current_user, loaded.user_id)
     # Isolation: future queries will use WHERE user_id = current + id=resume_id
-    # Stub: return example version (no real owner check on resume_id yet)
+    # In full: load resume parsed, use gateway.structured to rewrite bullets for role, compute ATS heuristic + log with request_id
+    # Stub: return example version
+    _rid = getattr(request.state, "request_id", None)
+    # (request_id passed to gateway + audit log)
     version = {
         "id": str(uuid.uuid4()),
         "version_name": f"{target_role} Tailored",
