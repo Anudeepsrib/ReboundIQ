@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
@@ -6,6 +6,7 @@ from datetime import datetime
 from app.core.config import settings
 from app.ai.gateway import gateway
 from app.services.storage import LocalStorage  # simple impl below
+from app.core.security import get_current_user
 import pdfplumber
 from io import BytesIO
 
@@ -37,8 +38,11 @@ class JDMatchRequest(BaseModel):
 
 @router.post("/upload", response_model=ResumeOut)
 async def upload_resume(
-    file: UploadFile = File(...), user_id: str = "demo-user"
-):  # TODO: real auth
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["id"]
+    # Isolation: storage key and future DB rows use authenticated user_id only
     if not file.filename:
         raise HTTPException(400, "No file")
     ext = file.filename.lower().split(".")[-1]
@@ -87,10 +91,14 @@ async def upload_resume(
 
 @router.post("/{resume_id}/versions", response_model=ResumeVersionOut)
 async def create_version(
-    resume_id: str, target_role: str = Form(...), user_id: str = "demo-user"
+    resume_id: str,
+    target_role: str = Form(...),
+    current_user: dict = Depends(get_current_user),
 ):
-    # In full: load resume parsed, use gateway.structured to rewrite bullets for role, compute ATS heuristic
-    # Stub: return example version
+    # user_id = current_user["id"]  # ready for owner check
+    # TODO: in full load resume by id+owner check: check_owner(current_user, loaded.user_id)
+    # Isolation: future queries will use WHERE user_id = current + id=resume_id
+    # Stub: return example version (no real owner check on resume_id yet)
     version = {
         "id": str(uuid.uuid4()),
         "version_name": f"{target_role} Tailored",
@@ -114,6 +122,10 @@ async def create_version(
 
 
 @router.get("/", response_model=List[ResumeOut])
-async def list_resumes(user_id: str = "demo-user"):
+async def list_resumes(current_user: dict = Depends(get_current_user)):
+    user_id = current_user["id"]
+    # Isolation: in full impl: SELECT ... FROM resumes WHERE user_id = :user_id  (parametrized)
+    # check_owner not needed for list (list own only)
     # Stub
+    _ = user_id  # used for future query filter
     return []

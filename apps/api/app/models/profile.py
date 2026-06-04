@@ -5,7 +5,7 @@ Separate from resumes for preferences, headline, sensitive fields (later encrypt
 
 from __future__ import annotations
 
-from sqlalchemy import String, Text
+from sqlalchemy import String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -24,5 +24,12 @@ class UserProfile(Base, IdMixin, TimestampMixin, UserOwnedMixin):
     sensitive_json: Mapped[dict | None] = mapped_column(
         JSONB
     )  # H1B etc - handle via redaction/encryption in services
+
+    # Consent flags (for snapshotting into JWT for memory/external/sensitive paths) [PR-3 auth/isolation]
+    consent_external_ai: Mapped[bool] = mapped_column(Boolean, default=False)
+    consent_memory_sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
+    consent_visa_processing: Mapped[bool] = mapped_column(Boolean, default=False)
+    # RBAC skeleton [PR-3]
+    role: Mapped[str] = mapped_column(String(50), default="user")
 
     user: Mapped["User"] = relationship(back_populates="profile", uselist=False)  # noqa: F821

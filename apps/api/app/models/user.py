@@ -24,3 +24,4 @@ class User(Base, IdMixin, TimestampMixin):
 
     # TODO: consent_records, sensitive_profile_fields (encrypted) - see design
     # agent_campaigns, memory_records etc via user_id (no backref needed for stubs)
+    # Profile/consents/role extended in user_profiles (PR-3 for auth + isolation)
