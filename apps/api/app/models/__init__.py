@@ -1,33 +1,9 @@
 # SQLAlchemy models package
-<<<<<<< HEAD
-# Base exported so alembic/env.py can do: from app.models import Base
-from app.db.base import Base
+from .user import User, Base
+from .resume import Resume, ResumeVersion, DocumentChunk
+from .ai_request import AIRequestLog
 
-from .user import User
-from .profile import UserProfile
-from .resume import Resume, ResumeVersion
-from .agent_campaigns import AgentCampaign
-from .memory_records import MemoryRecord
-from .agent_tool_calls import AgentToolCall
-from .agent_approval_requests import AgentApprovalRequest
-from .memory_candidates import MemoryCandidate
-from .memory_reflections import MemoryReflection
-from .ai_requests import AIRequest
-from .consent_records import ConsentRecord
-
-__all__ = [
-    "Base",
-    "User",
-    "UserProfile",
-    "Resume",
-    "ResumeVersion",
-    "AgentCampaign",
-    "MemoryRecord",
-    "AgentToolCall",
-    "AgentApprovalRequest",
-    "MemoryCandidate",
-    "MemoryReflection",
-    "AIRequest",
-    "ConsentRecord",
-]
-# Additional tables (jobs, applications, documents, action_audit_logs, etc) added in later PRs/migrations.
+__all__ = ["User", "Base", "Resume", "ResumeVersion", "AIRequestLog", "DocumentChunk"]
+# job_application, document, agent_campaigns, memory_records etc added in later migrations / PRs
+# ai_requests added in PR-4 for full audit of gateway calls (redacted + consent + full_audit_jsonb)
+# document_chunks added in PR-7 for resume RAG (pgvector embeddings, grounded recall)

@@ -7,7 +7,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import settings
-from app.models import Base  # all models imported in __init__ or explicit
+from app.models import Base  # all models imported in __init__ or explicit (DocumentChunk via PR-7)
 
 config = context.config
 config.set_main_option(
