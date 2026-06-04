@@ -38,13 +38,25 @@ services:
       - ollamadata:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
+    # Pull defaults on startup (idempotent; first run downloads for CPU/Windows).
+    # Healthcheck waits for model present in /api/tags so compose healthy means ready for local AI.
+    # See docs/LOCAL_AI_SETUP.md for custom models / AI_CHAT_MODEL overrides.
+    command: >
+      sh -c '
+        ollama serve &
+        sleep 3 ;
+        echo "[ollama] pulling default local models (llama3.2:1b + nomic-embed-text) if missing..." ;
+        ollama pull llama3.2:1b || true ;
+        ollama pull nomic-embed-text || true ;
+        echo "[ollama] models ready or pull attempted" ;
+        wait
+      '
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags | grep -q 'llama3.2:1b' || exit 1"]
+      interval: 15s
       timeout: 10s
-      retries: 3
-      start_period: 60s
-    # On Windows/CPU: pull small model manually or via entry in api
+      retries: 20
+      start_period: 30s
 
   minio:
     image: minio/minio:latest
@@ -94,7 +106,7 @@ services:
       redis:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./apps/api:/app
       - storage:/app/storage

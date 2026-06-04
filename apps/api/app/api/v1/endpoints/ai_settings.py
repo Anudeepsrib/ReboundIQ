@@ -22,12 +22,19 @@ class ProviderStatus(BaseModel):
 
 @router.get("/status", response_model=ProviderStatus)
 async def status():
+    local_available = False
+    if settings.AI_PROVIDER == "ollama":
+        try:
+            h = await gateway.local_health()
+            local_available = bool(h.get("local") and not h.get("error"))
+        except Exception:
+            local_available = False
     return {
         "provider": settings.AI_PROVIDER,
         "chat_model": settings.AI_CHAT_MODEL,
         "embedding_model": settings.AI_EMBEDDING_MODEL,
         "external_enabled": settings.ENABLE_EXTERNAL_AI,
-        "local_available": True,  # would ping ollama /api/tags
+        "local_available": local_available,
         "redaction_enabled": True,
     }
 
@@ -59,6 +66,37 @@ async def test_connection(request: Request):
             "ok": True,
             "provider": settings.AI_PROVIDER,
             "sample": res["content"][:50],
+            "request_id": rid,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e), "request_id": rid}
+
+
+@router.get("/test-conn")
+async def test_local_conn(request: Request):
+    """Dedicated local connection test (ollama /api/tags + model presence + optional smoke).
+    Use this for health dashboards and startup validation. Local-only path.
+    """
+    rid = getattr(request.state, "request_id", None)
+    try:
+        h = await gateway.local_health(request_id=rid)
+        ok = bool(h.get("local") and not h.get("error"))
+        sample = None
+        if ok and h.get("model_present"):
+            try:
+                chat = await gateway.chat(
+                    [{"role": "user", "content": "OK"}],
+                    max_tokens=2,
+                    request_id=rid,
+                )
+                sample = chat.get("content", "")[:30]
+            except Exception as ch_e:
+                sample = f"chat-err:{str(ch_e)[:60]}"
+        return {
+            "ok": ok,
+            "provider": settings.AI_PROVIDER,
+            "health": h,
+            "sample": sample,
             "request_id": rid,
         }
     except Exception as e:

@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 from typing import List, Optional, Literal
 
 
@@ -66,6 +67,27 @@ class Settings(BaseSettings):
     FEATURE_DEEP_AGENT: bool = True
     FEATURE_HINDSIGHT_MEMORY: bool = False
     FEATURE_VISA_MODE: bool = True
+
+    @model_validator(mode="after")
+    def validate_local_mode(self) -> "Settings":
+        """Settings validation for local mode (PR-5): ensure sane defaults for ollama/vllm primary."""
+        local_providers = ("ollama", "vllm")
+        if self.AI_PROVIDER in local_providers:
+            if not self.AI_BASE_URL:
+                raise ValueError(
+                    "AI_BASE_URL must be set for local AI_PROVIDER (ollama/vllm)"
+                )
+            if not self.AI_CHAT_MODEL:
+                raise ValueError("AI_CHAT_MODEL required for local mode")
+            if not self.AI_EMBEDDING_MODEL:
+                raise ValueError("AI_EMBEDDING_MODEL required for local mode")
+            # External must be explicitly opted into; never default-on for local
+            # (enforcement also in gateway; this is config-time signal)
+        else:
+            if not self.ENABLE_EXTERNAL_AI:
+                # allow but note: external provider with external disabled will fail at runtime
+                pass
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
