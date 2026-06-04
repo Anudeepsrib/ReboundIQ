@@ -120,8 +120,9 @@ It is not legal advice, immigration advice, financial advice, tax advice, or med
 All AI-generated content must be reviewed and edited by a human. Never use unedited output in real applications, messages, or official documents.
 
 ## Documentation
+- **[User Guide](docs/USER_GUIDE.md)** — step-by-step how to use the application, workflows, safety notes, and Mermaid diagrams for the main flows (resume processing, AI lifecycle, application pipeline, agent campaigns, architecture).
 - `docs/LOCAL_AI_SETUP.md` (includes Windows/WSL2, Docker Desktop, Ollama CPU notes)
-- Other guides (AI_PROVIDER_GUIDE.md, SECURITY.md, PRIVACY.md, EVALUATION.md, DEPLOYMENT.md, API.md, AI_PROVIDER_GUIDE.md) added in subsequent PRs per the plan in design.
+- Other guides (AI_PROVIDER_GUIDE.md, SECURITY.md, PRIVACY.md, EVALUATION.md, DEPLOYMENT.md, API.md) added in subsequent PRs per the plan in design.
 - Full design + PR plan: `.design/design-doc-85a840fd.md` (internal, gitignored)
 - See also: `.pre-commit-config.yaml`, `.dockerignore` (per-app), AGENTS.md, Makefile targets.
 
