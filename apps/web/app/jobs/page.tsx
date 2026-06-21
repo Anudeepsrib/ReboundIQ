@@ -2,9 +2,20 @@
 
 import React, { useState } from 'react';
 
+type MatchResult = {
+  match_score: number;
+  required_skills?: string[];
+  missing_skills?: string[];
+  red_flags?: string[];
+  citations?: string[];
+  warnings?: string[];
+  rewrite_strategy?: string;
+  recruiter_message_draft?: string;
+};
+
 export default function JobsAnalyzer() {
   const [jd, setJd] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<MatchResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -17,7 +28,7 @@ export default function JobsAnalyzer() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jd_text: jd })
     });
-    const data = await res.json();
+    const data = (await res.json()) as MatchResult;
     setResult(data);
     setLoading(false);
   }

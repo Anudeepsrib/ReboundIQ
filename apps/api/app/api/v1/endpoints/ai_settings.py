@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from app.core.config import settings
 from app.ai.gateway import gateway
 from app.ai.memory import (
@@ -18,19 +19,58 @@ class ProviderStatus(BaseModel):
     provider: str
     chat_model: str
     embedding_model: str
+    local_base_url: str
     external_enabled: bool
     local_available: bool
+    local_models: List[str]
+    chat_model_present: bool
+    embedding_model_present: bool
     redaction_enabled: bool
     memory_provider: str  # PR-6: "postgres+pgvector" | "inmem-fallback"
+
+
+class LocalModelRequest(BaseModel):
+    chat_model: str = Field(..., min_length=1, max_length=120)
+    embedding_model: Optional[str] = Field(default=None, max_length=120)
+    base_url: Optional[str] = Field(default=None, max_length=240)
+
+
+class LocalModelResponse(BaseModel):
+    ok: bool
+    provider: str
+    chat_model: str
+    embedding_model: str
+    local_base_url: str
+    local_models: List[str]
+    chat_model_present: bool
+    embedding_model_present: bool
+    warning: str
+
+
+SUGGESTED_LOCAL_MODELS = [
+    "llama3.2:1b",
+    "llama3.2:3b",
+    "gemma3:4b",
+    "gemma2:9b",
+    "mistral:7b",
+    "qwen2.5:7b",
+    "phi3:mini",
+]
 
 
 @router.get("/status", response_model=ProviderStatus)
 async def status():
     local_available = False
+    local_models: List[str] = []
+    chat_model_present = False
+    embedding_model_present = False
     if settings.AI_PROVIDER == "ollama":
         try:
             h = await gateway.local_health()
             local_available = bool(h.get("local") and not h.get("error"))
+            local_models = h.get("models", []) or []
+            chat_model_present = settings.AI_CHAT_MODEL in local_models
+            embedding_model_present = settings.AI_EMBEDDING_MODEL in local_models
         except Exception:
             local_available = False
     mem_type = (
@@ -42,10 +82,62 @@ async def status():
         "provider": settings.AI_PROVIDER,
         "chat_model": settings.AI_CHAT_MODEL,
         "embedding_model": settings.AI_EMBEDDING_MODEL,
+        "local_base_url": settings.AI_BASE_URL,
         "external_enabled": settings.ENABLE_EXTERNAL_AI,
         "local_available": local_available,
+        "local_models": local_models,
+        "chat_model_present": chat_model_present,
+        "embedding_model_present": embedding_model_present,
         "redaction_enabled": True,
         "memory_provider": mem_type,
+    }
+
+
+@router.get("/local-models")
+async def local_models(request: Request):
+    rid = getattr(request.state, "request_id", None)
+    health = await gateway.local_health(request_id=rid)
+    models = health.get("models", []) if health.get("local") and not health.get("error") else []
+    return {
+        "provider": "ollama",
+        "base_url": settings.AI_BASE_URL,
+        "chat_model": settings.AI_CHAT_MODEL,
+        "embedding_model": settings.AI_EMBEDDING_MODEL,
+        "installed_models": models,
+        "suggested_models": SUGGESTED_LOCAL_MODELS,
+        "request_id": rid,
+        "warning": "Only local Ollama models are listed here. Pull models outside the app, then refresh.",
+        "health": health,
+    }
+
+
+@router.post("/local-models/select", response_model=LocalModelResponse)
+async def select_local_model(req: LocalModelRequest, request: Request):
+    rid = getattr(request.state, "request_id", None)
+    configured = gateway.configure_local_models(
+        chat_model=req.chat_model,
+        embedding_model=req.embedding_model or settings.AI_EMBEDDING_MODEL,
+        base_url=req.base_url or settings.AI_BASE_URL,
+    )
+    health = await gateway.local_health(request_id=rid)
+    local_models = health.get("models", []) if health.get("local") and not health.get("error") else []
+    chat_model_present = configured["chat_model"] in local_models
+    embedding_model_present = configured["embedding_model"] in local_models
+    missing_warning = (
+        "Selected model is not currently reported by Ollama. Pull it locally, then test the connection."
+        if not chat_model_present
+        else "Runtime local model selection updated for this API process. Persist to .env or user settings for production."
+    )
+    return {
+        "ok": True,
+        "provider": configured["provider"],
+        "chat_model": configured["chat_model"],
+        "embedding_model": configured["embedding_model"],
+        "local_base_url": configured["base_url"],
+        "local_models": local_models,
+        "chat_model_present": chat_model_present,
+        "embedding_model_present": embedding_model_present,
+        "warning": missing_warning,
     }
 
 
@@ -89,6 +181,7 @@ async def test_connection(request: Request):
         return {
             "ok": True,
             "provider": settings.AI_PROVIDER,
+            "chat_model": settings.AI_CHAT_MODEL,
             "sample": res["content"][:50],
             "request_id": rid,
             "memory_smoke": {
@@ -124,6 +217,7 @@ async def test_local_conn(request: Request):
         return {
             "ok": ok,
             "provider": settings.AI_PROVIDER,
+            "chat_model": settings.AI_CHAT_MODEL,
             "health": h,
             "sample": sample,
             "request_id": rid,

@@ -2,11 +2,22 @@
 
 import React, { useState } from 'react';
 
+type ResumeUploadResult = {
+  id: string;
+  original_filename: string;
+};
+
+type ResumeVersionResult = {
+  version_name: string;
+  ats_score: number;
+  content_json: Record<string, unknown>;
+};
+
 export default function ResumePage() {
   const [file, setFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [uploadResult, setUploadResult] = useState<ResumeUploadResult | null>(null);
   const [targetRole, setTargetRole] = useState('AI Engineer');
-  const [version, setVersion] = useState<any>(null);
+  const [version, setVersion] = useState<ResumeVersionResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -17,7 +28,7 @@ export default function ResumePage() {
     const fd = new FormData();
     fd.append('file', file);
     const res = await fetch(`${API}/api/v1/resumes/upload`, { method: 'POST', body: fd });
-    const data = await res.json();
+    const data = (await res.json()) as ResumeUploadResult;
     setUploadResult(data);
     setLoading(false);
   }
@@ -28,7 +39,7 @@ export default function ResumePage() {
     const fd = new FormData();
     fd.append('target_role', targetRole);
     const res = await fetch(`${API}/api/v1/resumes/${uploadResult.id}/versions`, { method: 'POST', body: fd });
-    const data = await res.json();
+    const data = (await res.json()) as ResumeVersionResult;
     setVersion(data);
     setLoading(false);
   }

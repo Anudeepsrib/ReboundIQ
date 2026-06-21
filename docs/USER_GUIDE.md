@@ -11,8 +11,11 @@ From layoff to structured execution: runway planning, resume intelligence, JD ma
 - [UI Overview & Navigation](#ui-overview--navigation)
 - [Key Workflows](#key-workflows)
   - [Resume Intelligence](#resume-intelligence)
+  - [Runway Planning](#runway-planning)
   - [JD Analysis & Matching](#jd-analysis--matching)
   - [Application Tracking](#application-tracking)
+  - [Proof-of-Work Builder](#proof-of-work-builder)
+  - [Interview Prep](#interview-prep)
   - [Deep Agent Campaigns](#deep-agent-campaigns)
   - [AI Providers & Consent](#ai-providers--consent)
   - [Privacy & Data Control](#privacy--data-control)
@@ -78,15 +81,19 @@ make migrate  # run DB migrations
 
 Top nav (always visible):
 - **Dashboard** — Overview, progress, risk signals, quick actions, weekly plan.
+- **Runway** — Scenario-based cash runway planner with planning disclaimers.
 - **Resume** — Upload, parse, create role-targeted versions.
 - **JD Match** — Paste job descriptions for extraction + evidence-based matching.
+- **Applications** — Local demo pipeline with JD snapshots, scorecards, and follow-up signals.
+- **Proof** — Evidence-first proof assets such as STAR stories, READMEs, and architecture narratives.
+- **Interview** — Question drills, evidence checklist, self-score, and local practice history.
 - **Campaigns** — Launch deep agent workflows (supervisor + sub-agents for resume overhaul, outreach batches, etc.).
 - **AI Settings** — Provider status, toggle external AI + record consent.
 - **Privacy** — Consent records, data export/delete controls.
 
 Footer always reminds: *Planning guidance only. Not legal/financial/immigration advice.*
 
-Many pages currently show "stub" / vertical slice notices — full CRUD, history, RAG citations, and polish arrive in subsequent PRs.
+Some pages use browser-local demo state. Full API-backed CRUD, history, RAG citations, and production persistence arrive in subsequent PRs.
 
 ## Key Workflows
 
@@ -118,14 +125,43 @@ Upload your resume first for better personalization in future increments.
 
 **Safety**: All drafts contain warnings. Edit out any overclaims.
 
-### Application Tracking
-Currently a placeholder. In the full application:
-- Kanban board + table view (Saved → Applied → Recruiter Screen → Tech → System Design → Manager → Final → Offer / Rejected / Withdrawn).
-- Link specific resume version + JD snapshot to each application.
-- Scorecards, follow-up reminders, and grounded suggestions generated from your data.
-- Manual only — no auto-apply.
+### Runway Planning
+Go to **Runway**.
 
-Use the **JD Match** output to manually create records while the tracker is being built.
+- Enter cash, severance, expected transition income, monthly expenses, debt minimums, one-time costs, and contingency.
+- Review Conservative, Moderate, and Lean runway scenarios.
+- Use the checklist to identify documents, deadlines, and assumptions that need verification.
+
+**Safety**: This page provides planning guidance and risk signals only. It is not financial, legal, immigration, tax, or medical advice.
+
+### Application Tracking
+Go to **Applications**.
+
+- Add opportunities with company, role, match score, priority, resume version, sponsorship signal, and notes.
+- Move records across Saved, Applied, Recruiter, Tech, System Design, Manager, Final, Offer, Rejected, and Withdrawn.
+- Use scorecards and follow-up due signals to decide what needs attention.
+
+Current slice: data is browser-local demo state. Full backend CRUD, authenticated user isolation, event history, and reminder jobs arrive later.
+
+Manual only — no auto-apply.
+
+### Proof-of-Work Builder
+Go to **Proof**.
+
+- Choose STAR story, architecture narrative, GitHub README, or LinkedIn post.
+- Fill in evidence, situation, task, action, result, metrics, and citations.
+- Save proof assets to the local proof board.
+
+Missing evidence stays visible in the draft instead of being inferred.
+
+### Interview Prep
+Go to **Interview**.
+
+- Select Behavioral, System Design, AI/RAG, Backend, or Leadership.
+- Practice with question prompts, expected evidence, likely follow-ups, and answer notes.
+- Use the checklist and sliders to save a local practice score.
+
+Scores are practice signals only, not hiring predictions.
 
 ### Deep Agent Campaigns
 Go to **Campaigns**.
@@ -136,12 +172,15 @@ This is the "deep work" layer powered by LangGraph:
 - Human approval checkpoints before artifacts are saved/applied.
 - Optional hindsight memory to learn from real outcomes (callbacks, rejections, interviews).
 
-Current slice: placeholder. Full supervisor + 7 sub-agents + approval UI + memory integration follow the design plan.
+Current slice: supervised campaign cockpit with approval statuses and workflow stages. Full supervisor + 7 sub-agents + memory integration follow the design plan.
 
 ### AI Providers & Consent
 Go to **AI Settings**.
 
-- View current provider (Ollama by default), models, status.
+- View current provider (Ollama by default), local models, and status.
+- Select an installed local Ollama model, choose a suggested local tag, or type a custom local tag.
+- Example local chat tags include `llama3.2:1b`, `gemma3:4b`, `gemma2:9b`, `mistral:7b`, `qwen2.5:7b`, and `phi3:mini`.
+- Run the provider test after changing models.
 - Toggle **External AI**:
   1. Read the disclaimer.
   2. Type or edit the consent acknowledgment.

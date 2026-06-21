@@ -11,6 +11,7 @@ import json
 import time
 import httpx
 from typing import Any, Dict, List, Optional, AsyncIterator
+from urllib.parse import urlparse
 from app.core.config import settings
 from app.core.logging import logger
 from .redaction import redaction_service
@@ -41,6 +42,65 @@ class AIGateway:
             self._ollama = OllamaProvider(
                 self.base_url, self.chat_model, self.embed_model
             )
+
+    def _is_local_base_url(self, base_url: str) -> bool:
+        parsed = urlparse(base_url)
+        host = (parsed.hostname or "").lower()
+        return host in {
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "ollama",
+            "host.docker.internal",
+        }
+
+    def configure_local_models(
+        self,
+        *,
+        chat_model: str,
+        embedding_model: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Runtime demo settings for local Ollama models.
+
+        Persistence belongs in a user settings table in the production slice. This method
+        intentionally refuses non-local base URLs to avoid turning local settings into an
+        external-provider bypass.
+        """
+        chat_model = chat_model.strip()
+        embedding_model = (embedding_model or self.embed_model).strip()
+        next_base_url = (base_url or self.base_url).strip().rstrip("/")
+
+        if not chat_model:
+            raise ValueError("chat_model is required")
+        if not embedding_model:
+            raise ValueError("embedding_model is required")
+        if not next_base_url.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        if not self._is_local_base_url(next_base_url):
+            raise ValueError(
+                "Local model base_url must point to localhost, ollama, or host.docker.internal. "
+                "Use the external provider consent flow for remote services."
+            )
+
+        self.provider = "ollama"
+        self.chat_model = chat_model
+        self.embed_model = embedding_model
+        self.base_url = next_base_url
+        self.enable_external = settings.ENABLE_EXTERNAL_AI
+        self._ollama = OllamaProvider(self.base_url, self.chat_model, self.embed_model)
+
+        settings.AI_PROVIDER = "ollama"
+        settings.AI_CHAT_MODEL = self.chat_model
+        settings.AI_EMBEDDING_MODEL = self.embed_model
+        settings.AI_BASE_URL = self.base_url
+
+        return {
+            "provider": self.provider,
+            "chat_model": self.chat_model,
+            "embedding_model": self.embed_model,
+            "base_url": self.base_url,
+        }
 
     def _is_external(self) -> bool:
         """Local (ollama/vllm on localhost) default; anything else or flag = external."""

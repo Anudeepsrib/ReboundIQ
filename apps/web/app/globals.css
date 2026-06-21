@@ -11,15 +11,15 @@ body {
 }
 
 .card {
-  @apply bg-zinc-900 border border-zinc-800 rounded-xl p-6;
+  @apply bg-zinc-900 border border-zinc-800 rounded-lg p-5;
 }
 
 .input {
-  @apply bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-zinc-700;
+  @apply bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn {
-  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-primary {
@@ -36,4 +36,16 @@ body {
 
 .disclaimer {
   @apply text-[10px] text-zinc-500 mt-1;
+}
+
+.pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs;
+}
+
+.metric {
+  @apply text-2xl font-semibold tracking-tight text-white;
+}
+
+.section-title {
+  @apply text-sm font-medium text-zinc-200;
 }
