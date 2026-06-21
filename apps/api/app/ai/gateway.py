@@ -296,6 +296,8 @@ class AIGateway:
         latency = (time.time() - start) * 1000
 
         # Always audit every request (local + external). request_id propagated from middleware.
+        prompt_preview = self._prompt_preview(redacted_messages)
+        response_preview = self._redacted_preview(content)
         audit_record = {
             "provider": effective_provider,
             "model": model,
@@ -313,7 +315,11 @@ class AIGateway:
             "primary_provider": self.provider,
         }
         logger.info("ai.chat", extra=audit_record)
-        # TODO (next slice): await insert AIRequestLog(..., full_audit_jsonb=audit_record)
+        await self._persist_ai_request(
+            audit_record,
+            prompt_preview=prompt_preview,
+            response_preview=response_preview,
+        )
 
         return {
             "content": content,
@@ -330,36 +336,45 @@ class AIGateway:
         model: Optional[str] = None,
         user_id: Optional[str] = None,
         request_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Structured JSON output (via chat + parse for local compat). Redaction/audit via chat."""
         model = model or self.chat_model
         messages = [
             {"role": "system", "content": system},
-            {"role": "user", "content": user},
+            {
+                "role": "user",
+                "content": user
+                + "\n\nReturn ONLY valid JSON matching the requested structure. No prose.",
+            },
         ]
-        # Delegate to provider for local (better prompt + fence handling in ollama impl)
-        if self.provider == "ollama":
-            if self._ollama is None:
-                raise RuntimeError("Ollama provider not initialized")
-            return await self._ollama.structured(system, user, schema, model=model)
-        # For external: use chat + parse (or future native json)
         result = await self.chat(
             messages,
             model=model,
             temperature=0.1,
             user_id=user_id,
             request_id=request_id,
+            metadata={
+                "operation": "structured",
+                "schema": schema,
+                **(metadata or {}),
+            },
         )
+        raw = (result.get("content") or "").strip()
         try:
-            parsed = json.loads(result["content"])
+            if raw.startswith("```"):
+                raw = raw.split("```", 2)[1] if "```" in raw else raw
+                if raw.lower().startswith("json"):
+                    raw = raw[4:].strip()
+            parsed = json.loads(raw)
             return parsed
         except Exception:
             logger.warning(
                 "structured.parse_fail",
-                extra={"raw": result["content"][:200], "request_id": request_id},
+                extra={"raw": raw[:200], "request_id": request_id},
             )
             # Fallback: return raw for caller to handle or retry
-            return {"_raw": result["content"], "_parse_error": True}
+            return {"_raw": raw, "_parse_error": True}
 
     async def embed(
         self,
@@ -378,12 +393,10 @@ class AIGateway:
         red_text = text
         redaction_info = {"redacted": False, "counts": {}}
         if is_external:
-            red_text, was_red, red_audit = await redaction_service.redact_for_external(
-                [], user_text=text
-            )
+            red_text, counts = redaction_service.redact_text(text)
             redaction_info = {
-                "redacted": was_red,
-                "counts": red_audit.get("redaction_counts", {}),
+                "redacted": bool(counts),
+                "counts": counts,
             }
 
         emb: List[float] = []
@@ -478,6 +491,11 @@ class AIGateway:
             "primary_provider": self.provider,
         }
         logger.info("ai.embed", extra=audit_record)
+        await self._persist_ai_request(
+            audit_record,
+            prompt_preview=self._redacted_preview(red_text),
+            response_preview=f"embedding_dim={len(emb)}",
+        )
 
         return emb
 
@@ -500,9 +518,7 @@ class AIGateway:
         redaction_info = {"redacted": False, "counts": {}}
         if is_external:
             # redact query + all docs
-            _, _, q_audit = await redaction_service.redact_for_external(
-                [], user_text=query
-            )
+            _, q_counts = redaction_service.redact_text(query)
             red_docs = []
             doc_counts: Dict[str, int] = {}
             for d in documents:
@@ -511,8 +527,8 @@ class AIGateway:
                 for k, v in dc.items():
                     doc_counts[k] = doc_counts.get(k, 0) + v
             redaction_info = {
-                "redacted": bool(q_audit.get("redaction_counts") or doc_counts),
-                "counts": {**q_audit.get("redaction_counts", {}), **doc_counts},
+                "redacted": bool(q_counts or doc_counts),
+                "counts": {**q_counts, **doc_counts},
             }
 
         # Concrete stub: identity order + dummy scores. Real: cross-encoder or cohere/litellm rerank.
@@ -536,6 +552,11 @@ class AIGateway:
             "external": is_external,
         }
         logger.info("ai.rerank", extra=audit_record)
+        await self._persist_ai_request(
+            audit_record,
+            prompt_preview=self._redacted_preview(query),
+            response_preview=f"ranked={len(ranked)}",
+        )
         return ranked
 
     async def stream(
@@ -608,6 +629,73 @@ class AIGateway:
                 "error": str(e)[:300],
                 "base_url": self.base_url,
             }
+
+    def _redacted_preview(self, text: str, *, limit: int = 1200) -> str:
+        redacted, _ = redaction_service.redact_text(text or "")
+        return redacted[:limit]
+
+    def _prompt_preview(self, messages: List[Dict[str, str]], *, limit: int = 1200) -> str:
+        parts: list[str] = []
+        for msg in messages or []:
+            role = msg.get("role", "unknown") if isinstance(msg, dict) else "unknown"
+            content = msg.get("content", "") if isinstance(msg, dict) else ""
+            parts.append(f"{role}: {content}")
+        return self._redacted_preview("\n".join(parts), limit=limit)
+
+    async def _persist_ai_request(
+        self,
+        audit_record: Dict[str, Any],
+        *,
+        prompt_preview: Optional[str],
+        response_preview: Optional[str],
+    ) -> None:
+        """Best-effort DB audit for AI calls with a user_id.
+
+        The structured log above is always emitted. DB persistence is skipped when
+        there is no authenticated user or the database is unavailable during smoke
+        tests, but failures are logged with request_id for follow-up.
+        """
+        user_id = audit_record.get("user_id")
+        if not user_id:
+            return
+        try:
+            from app.db.session import get_db_context
+            from app.models.ai_requests import AIRequest
+
+            async with get_db_context() as db:
+                db.add(
+                    AIRequest(
+                        user_id=str(user_id),
+                        request_id=audit_record.get("request_id"),
+                        provider=audit_record.get("provider") or self.provider,
+                        model=audit_record.get("model") or self.chat_model,
+                        prompt_preview=prompt_preview,
+                        response_preview=response_preview,
+                        usage_json={
+                            "usage": audit_record.get("usage", {}),
+                            "endpoint": audit_record.get("endpoint"),
+                            "latency_ms": audit_record.get("latency_ms"),
+                            "redaction_counts": audit_record.get(
+                                "redaction_counts", {}
+                            ),
+                            "used_fallback": audit_record.get("used_fallback", False),
+                            "metadata": audit_record.get("metadata", {}),
+                        },
+                        external=bool(audit_record.get("external", False)),
+                        redacted=bool(audit_record.get("redacted", False)),
+                        consent_id=None,
+                    )
+                )
+        except Exception as ex:
+            logger.warning(
+                "ai.audit.persist_failed",
+                extra={
+                    "request_id": audit_record.get("request_id"),
+                    "user_id": user_id,
+                    "error_type": type(ex).__name__,
+                    "error": str(ex)[:180],
+                },
+            )
 
 
 gateway = AIGateway()

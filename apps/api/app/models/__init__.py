@@ -3,6 +3,9 @@ from .user import User, Base
 from .profile import UserProfile
 from .resume import Resume, ResumeVersion, DocumentChunk
 from .ai_requests import AIRequest
+from .agent_campaigns import AgentCampaign
+from .agent_tool_calls import AgentToolCall
+from .agent_approval_requests import AgentApprovalRequest
 
 AIRequestLog = AIRequest
 
@@ -14,6 +17,9 @@ __all__ = [
     "ResumeVersion",
     "AIRequestLog",
     "DocumentChunk",
+    "AgentCampaign",
+    "AgentToolCall",
+    "AgentApprovalRequest",
 ]
 # job_application, document, agent_campaigns, memory_records etc added in later migrations / PRs
 # ai_requests added in PR-4 for full audit of gateway calls (redacted + consent + full_audit_jsonb)

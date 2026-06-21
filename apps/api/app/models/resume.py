@@ -32,6 +32,7 @@ class Resume(Base):
     versions: Mapped[list["ResumeVersion"]] = relationship(
         back_populates="resume", cascade="all, delete-orphan"
     )
+    user: Mapped["User"] = relationship(back_populates="resumes")  # noqa: F821
 
 
 class ResumeVersion(Base):

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -18,7 +18,9 @@ from app.db.base import Base, IdMixin, TimestampMixin, UserOwnedMixin
 class AgentApprovalRequest(Base, IdMixin, TimestampMixin, UserOwnedMixin):
     __tablename__ = "agent_approval_requests"
 
-    campaign_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agent_campaigns.id"), nullable=False, index=True
+    )
 
     artifact_type: Mapped[str] = mapped_column(String(50), index=True)
     # e.g. "outreach_email", "resume_version", "cover_letter", "plan", "message"

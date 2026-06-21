@@ -5,9 +5,9 @@ import structlog
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.api.v1.router import api_router
-from app.core import security  # PR-3: JWT + get_current_user + blacklist + owner checks (loaded for deps)
 from app.core.middleware import add_request_id  # PR-4 request id + observability for gateway/audit
 from app.ai.gateway import gateway  # PR-5 / ollama default + health
+from app.agents.observability import configure_langsmith_env
 
 setup_logging()
 
@@ -16,11 +16,14 @@ setup_logging()
 async def lifespan(app: FastAPI):
     # Startup: check connections etc (ollama health in compose)
     logger = structlog.get_logger()
+    langsmith = configure_langsmith_env()
     logger.info(
         "app.startup",
         version=settings.VERSION,
         env=settings.ENV,
         ai_provider=settings.AI_PROVIDER,
+        langsmith_tracing=langsmith["tracing"],
+        langsmith_project=langsmith["project"],
     )
     yield
     logger.info("app.shutdown")

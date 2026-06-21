@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     FEATURE_HINDSIGHT_MEMORY: bool = False
     FEATURE_VISA_MODE: bool = True
 
+    # LangChain / LangGraph / LangSmith observability
+    LANGSMITH_TRACING: bool = False
+    LANGSMITH_PROJECT: str = "reboundiq-local"
+    LANGSMITH_ENDPOINT: Optional[str] = None
+    LANGGRAPH_CHECKPOINT_BACKEND: Literal["memory", "postgres"] = "memory"
+    LANGGRAPH_CHECKPOINT_DATABASE_URL: Optional[str] = None
+    LANGGRAPH_CHECKPOINT_SETUP: bool = False
+
     @model_validator(mode="after")
     def validate_local_mode(self) -> "Settings":
         """Settings validation for local mode (PR-5): ensure sane defaults for ollama/vllm primary."""

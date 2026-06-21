@@ -5,7 +5,7 @@ Linked to campaign. Immutable-ish (soft delete for GDPR export/delete cascade).
 
 from __future__ import annotations
 
-from sqlalchemy import String, Integer
+from sqlalchemy import ForeignKey, String, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -16,7 +16,7 @@ class AgentToolCall(Base, IdMixin, TimestampMixin, UserOwnedMixin):
     __tablename__ = "agent_tool_calls"
 
     campaign_id: Mapped[str] = mapped_column(
-        String(36), nullable=False, index=True
+        String(36), ForeignKey("agent_campaigns.id"), nullable=False, index=True
     )  # FK to agent_campaigns (enforced in migration)
 
     tool_name: Mapped[str] = mapped_column(String(100), index=True)
