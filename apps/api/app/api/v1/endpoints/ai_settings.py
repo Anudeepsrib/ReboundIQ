@@ -1,11 +1,20 @@
-from fastapi import APIRouter, Request
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
+from app.core.security import get_current_user
+from app.db.session import get_db
 from app.ai.gateway import gateway
 from app.ai.memory import (
     memory_provider,
 )  # PR-6: basic retain/recall wired for RAG/services
+from app.models.consent_records import ConsentRecord
+from app.models.profile import UserProfile
+from app.services.audit import log_action
 
 router = APIRouter()
 
@@ -142,16 +151,56 @@ async def select_local_model(req: LocalModelRequest, request: Request):
 
 
 @router.post("/consent/external-ai")
-async def consent_external(req: ConsentRequest):
-    if not req.consent_text or "I understand" not in req.consent_text:
-        return {"ok": False, "error": "Must acknowledge disclaimer"}
-    # In real: record in consent_records table for user, update session flag
-    # For now just allow toggle in this process (not persisted)
+async def consent_external(
+    req: ConsentRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    if req.enable_external and (
+        not req.consent_text or "I understand" not in req.consent_text
+    ):
+        raise HTTPException(status_code=400, detail="Must acknowledge disclaimer")
+
+    user_id = current_user["id"]
+    profile_result = await db.execute(
+        select(UserProfile).where(UserProfile.user_id == user_id)
+    )
+    profile = profile_result.scalar_one_or_none()
+    if not profile:
+        profile = UserProfile(user_id=user_id)
+        db.add(profile)
+        await db.flush()
+
+    profile.consent_external_ai = req.enable_external
+    consent = ConsentRecord(
+        user_id=user_id,
+        consent_type="external_ai",
+        granted=req.enable_external,
+        consent_text=req.consent_text,
+        revoked_at=None if req.enable_external else datetime.now(timezone.utc),
+    )
+    db.add(consent)
+    await log_action(
+        db,
+        user_id=user_id,
+        action="consent_granted" if req.enable_external else "consent_revoked",
+        resource_type="external_ai",
+        resource_id=consent.id,
+        request_id=getattr(request.state, "request_id", None),
+        metadata={"enabled": req.enable_external},
+    )
+
     settings.ENABLE_EXTERNAL_AI = req.enable_external
+    gateway.enable_external = req.enable_external
+    await db.commit()
+    await db.refresh(consent)
+
     return {
         "ok": True,
         "external_now": settings.ENABLE_EXTERNAL_AI,
-        "warning": "External calls will be redacted + audited. This is not stored persistently in demo slice.",
+        "consent_id": consent.id,
+        "warning": "External calls are redacted and audited. Refresh your session token to embed the latest consent snapshot.",
     }
 
 

@@ -4,7 +4,7 @@ Date: 2026-06-18
 
 ## Scope
 
-This slice expands the web app from the initial Resume/JD vertical into a broader local-first ReboundIQ demo:
+This slice expands the web app from the initial Resume/JD vertical into a broader local-first ReboundIQ product workspace:
 
 - Runway Planner at `/runway`
 - Application Tracker at `/applications`
@@ -21,7 +21,9 @@ This slice expands the web app from the initial Resume/JD vertical into a broade
 - No backend provider calls were added outside the existing AI Gateway paths.
 - Backend persistence now covers runway snapshots, application records, proof assets, and interview sessions through authenticated CRUD APIs.
 - Alembic migration `0004_workflow_records.py` adds these product workflow tables with `user_id` isolation, soft delete fields, and focused indexes.
-- Browser-local state remains useful as an offline fallback in the web app, but the backend gap for product workflow persistence is closed.
+- The web workflow pages now use the authenticated workflow APIs instead of browser-local persistence.
+- `0005_action_audit_logs.py` adds deterministic action audit records for workflow, consent, export, and delete paths.
+- Privacy export/delete and external AI consent are backed by authenticated API calls.
 - Campaigns remain supervised workflow UI only; they do not run autonomous agents, auto-apply, auto-send, or auto-edit user artifacts.
 - Local Ollama chat and embedding model choices can be changed at runtime for the API process.
 - Suggested local model tags include Gemma-style and other Ollama models, and users can type any pulled local tag.
@@ -36,7 +38,7 @@ This slice expands the web app from the initial Resume/JD vertical into a broade
 
 ## Follow-Up Work
 
-- Wire the web pages from browser-local state to the authenticated workflow APIs.
+- Add reminder scheduling and notification delivery for application next steps.
 - Add eval cases before AI generation is introduced for proof, interview, outreach, or campaign artifacts.
 - Wire future generation only through AIGateway, RedactionService, ComplianceGuardAgent, audit logs, citations, and human approval.
 - Persist per-user local model preferences through an authenticated settings API instead of process-local runtime settings.

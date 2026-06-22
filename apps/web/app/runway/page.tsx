@@ -1,261 +1,203 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Calculator, CalendarDays, CircleDollarSign, Gauge, RotateCcw, ShieldAlert, WalletCards } from 'lucide-react';
-import { MetricCard, PageHeader, ProgressBar, SectionHeader } from '@/components/product-ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarDays, CircleDollarSign, Gauge, LockKeyhole, Save, Trash2, WalletCards } from 'lucide-react';
+import { apiFetch, getStoredToken } from '@/lib/api';
+import { EmptyState, MetricCard, PageHeader, ProgressBar, SafetyNotice, SectionHeader } from '@/components/product-ui';
 
-type RunwayInputs = {
-  cash: number;
-  severance: number;
-  monthlyIncome: number;
-  housing: number;
-  essentials: number;
-  insurance: number;
-  debtMinimums: number;
-  oneTimeCosts: number;
-  contingency: number;
+type RunwaySnapshot = {
+  id: string;
+  title: string;
+  scenario: string;
+  risk_level: string;
+  monthly_expenses: number;
+  savings_balance: number;
+  severance_amount: number;
+  unemployment_amount: number;
+  target_months: number;
+  assumptions_json?: Record<string, unknown> | null;
+  action_items_json?: Array<string | Record<string, unknown>> | null;
+  disclaimer_acknowledged: boolean;
+  created_at: string;
 };
 
-type Scenario = {
-  name: string;
-  description: string;
-  monthlyBurn: number;
-  available: number;
-  days: number;
-};
-
-const DEFAULT_INPUTS: RunwayInputs = {
-  cash: 18000,
-  severance: 9000,
-  monthlyIncome: 1200,
-  housing: 2400,
-  essentials: 1300,
-  insurance: 650,
-  debtMinimums: 450,
-  oneTimeCosts: 1800,
-  contingency: 900,
-};
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 function money(value: number) {
   return currency.format(Math.round(value || 0));
 }
 
-function clampNumber(value: number) {
-  if (Number.isNaN(value)) return 0;
-  return Math.max(0, value);
-}
-
-function riskForDays(days: number) {
-  if (days < 45) return { label: 'Critical', className: 'text-red-300', border: 'border-red-900 bg-red-950/40' };
-  if (days < 90) return { label: 'Tight', className: 'text-amber-300', border: 'border-amber-900 bg-amber-950/40' };
-  if (days < 150) return { label: 'Monitor', className: 'text-cyan-300', border: 'border-cyan-900 bg-cyan-950/40' };
-  return { label: 'Stable', className: 'text-emerald-300', border: 'border-emerald-900 bg-emerald-950/40' };
-}
-
-function runwayDays(available: number, monthlyBurn: number) {
-  if (monthlyBurn <= 0) return 365;
-  return Math.max(0, Math.round((available / monthlyBurn) * 30.4375));
+function riskForMonths(months: number) {
+  if (months < 1.5) return { label: 'critical', className: 'text-red-300', tone: 'bg-red-300' };
+  if (months < 3) return { label: 'tight', className: 'text-amber-300', tone: 'bg-amber-300' };
+  if (months < 5) return { label: 'monitor', className: 'text-cyan-300', tone: 'bg-cyan-300' };
+  return { label: 'stable', className: 'text-emerald-300', tone: 'bg-emerald-300' };
 }
 
 export default function RunwayPlanner() {
-  const [inputs, setInputs] = useState<RunwayInputs>(DEFAULT_INPUTS);
+  const queryClient = useQueryClient();
+  const [token] = useState(() => getStoredToken());
+  const [title, setTitle] = useState('Current runway');
+  const [cash, setCash] = useState(18000);
+  const [severance, setSeverance] = useState(9000);
+  const [unemployment, setUnemployment] = useState(1200);
+  const [monthlyExpenses, setMonthlyExpenses] = useState(5700);
+  const [targetMonths, setTargetMonths] = useState(6);
 
-  function updateInput(key: keyof RunwayInputs, value: string) {
-    setInputs((current) => ({ ...current, [key]: clampNumber(Number(value)) }));
-  }
+  const snapshotsQuery = useQuery({
+    queryKey: ['runway-snapshots'],
+    queryFn: () => apiFetch<RunwaySnapshot[]>('/api/v1/runway/snapshots'),
+    enabled: Boolean(token),
+  });
 
   const model = useMemo(() => {
-    const monthlyExpenses = inputs.housing + inputs.essentials + inputs.insurance + inputs.debtMinimums + inputs.contingency;
-    const baseMonthlyBurn = Math.max(0, monthlyExpenses - inputs.monthlyIncome);
-    const baseAvailable = Math.max(0, inputs.cash + inputs.severance - inputs.oneTimeCosts);
-    const scenarios: Scenario[] = [
-      {
-        name: 'Conservative',
-        description: 'Higher burn and lower available buffer',
-        monthlyBurn: baseMonthlyBurn * 1.15,
-        available: baseAvailable * 0.95,
-        days: runwayDays(baseAvailable * 0.95, baseMonthlyBurn * 1.15),
-      },
-      {
-        name: 'Moderate',
-        description: 'Current planned expenses',
-        monthlyBurn: baseMonthlyBurn,
-        available: baseAvailable,
-        days: runwayDays(baseAvailable, baseMonthlyBurn),
-      },
-      {
-        name: 'Lean',
-        description: 'Reduced discretionary burn',
-        monthlyBurn: baseMonthlyBurn * 0.85,
-        available: baseAvailable,
-        days: runwayDays(baseAvailable, baseMonthlyBurn * 0.85),
-      },
-    ];
-
-    const moderate = scenarios[1];
-    const actionItems = [
-      'Validate severance dates, benefits windows, and recurring obligations against source documents.',
-      moderate.days < 90
-        ? 'Bias the weekly plan toward active interviews, warm referrals, and roles with clear match evidence.'
-        : 'Maintain a balanced weekly plan across resume tailoring, targeted applications, proof assets, and interview practice.',
-      inputs.debtMinimums > 0
-        ? 'Track minimum obligations separately from discretionary spend before changing repayment behavior.'
-        : 'Keep a separate buffer for expenses that do not appear every month.',
-      inputs.insurance > 0
-        ? 'Review benefits and coverage deadlines with official plan documents or a qualified professional.'
-        : 'Add any benefits, coverage, or transition costs before relying on this estimate.',
-    ];
-
+    const available = Math.max(0, cash + severance);
+    const burn = Math.max(0, monthlyExpenses - unemployment);
+    const months = burn > 0 ? available / burn : targetMonths;
+    const risk = riskForMonths(months);
     return {
-      monthlyExpenses,
-      baseMonthlyBurn,
-      baseAvailable,
-      scenarios,
-      actionItems,
-      risk: riskForDays(moderate.days),
+      available,
+      burn,
+      months,
+      days: Math.round(months * 30.4375),
+      risk,
+      actions: [
+        'Validate severance, benefits, and recurring obligations against source documents.',
+        months < 3 ? 'Prioritize warm referrals and roles with strong evidence fit this week.' : 'Balance applications, proof assets, and interview practice across the week.',
+        'Keep legal, immigration, tax, financial, and benefits questions with qualified professionals.',
+      ],
     };
-  }, [inputs]);
+  }, [cash, severance, monthlyExpenses, targetMonths, unemployment]);
+
+  const saveSnapshot = useMutation({
+    mutationFn: () =>
+      apiFetch<RunwaySnapshot>('/api/v1/runway/snapshots', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          scenario: 'base',
+          risk_level: model.risk.label,
+          monthly_expenses: monthlyExpenses,
+          savings_balance: cash,
+          severance_amount: severance,
+          unemployment_amount: unemployment,
+          target_months: targetMonths,
+          assumptions_json: { modeled_months: Number(model.months.toFixed(2)), modeled_days: model.days },
+          action_items_json: model.actions,
+          disclaimer_acknowledged: true,
+        }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['runway-snapshots'] }),
+  });
+
+  const deleteSnapshot = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/v1/runway/snapshots/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['runway-snapshots'] }),
+  });
+
+  if (!token) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Runway planner"
+          title="Login to save runway snapshots"
+          description="Runway data is user-scoped and persisted only after authentication."
+          actions={<span className="pill border-amber-400/20 bg-amber-400/10 text-amber-100"><LockKeyhole className="h-3.5 w-3.5" /> Login required</span>}
+        />
+        <a href="/login" className="btn btn-primary">Login / Create Demo User</a>
+      </div>
+    );
+  }
+
+  const snapshots = snapshotsQuery.data || [];
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Runway planner"
-        title="Model your transition window"
-        description="Cash runway, burn-rate scenarios, and weekly risk signals for planning conversations."
-        actions={
-          <span className={`pill ${model.risk.border}`}>
-            <Gauge className="h-3.5 w-3.5" />
-            <span className={model.risk.className}>{model.risk.label} risk</span>
-          </span>
-        }
+        title="Model and save your transition window"
+        description="Persist conservative runway snapshots with planning disclaimers and weekly action signals."
+        actions={<span className={`pill border-zinc-800 bg-zinc-950 ${model.risk.className}`}><Gauge className="h-3.5 w-3.5" /> {model.risk.label}</span>}
       />
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <MetricCard
-          label="Available buffer"
-          value={money(model.baseAvailable)}
-          detail="Cash plus severance minus one-time transition costs."
-          icon={WalletCards}
-          tone="text-emerald-300"
-        />
-        <MetricCard
-          label="Monthly burn"
-          value={money(model.baseMonthlyBurn)}
-          detail="Expenses and contingency after expected monthly income."
-          icon={CircleDollarSign}
-          tone="text-amber-300"
-        />
-        <MetricCard
-          label="Moderate runway"
-          value={`${model.scenarios[1].days} days`}
-          detail={`${Math.round(model.scenarios[1].days / 30.4375)} months at current inputs.`}
-          icon={CalendarDays}
-          tone="text-cyan-300"
-        />
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard label="Available buffer" value={money(model.available)} detail="Cash plus severance." icon={WalletCards} tone="text-emerald-300" />
+        <MetricCard label="Monthly burn" value={money(model.burn)} detail="Expenses after transition income." icon={CircleDollarSign} tone="text-amber-300" />
+        <MetricCard label="Modeled runway" value={`${model.days} days`} detail={`${model.months.toFixed(1)} months at current inputs.`} icon={CalendarDays} tone="text-cyan-300" />
       </section>
 
-      <section className="card-subtle grid grid-cols-1 gap-4 text-sm md:grid-cols-[0.7fr_1.3fr] md:items-center">
-        <div>
-          <div className="muted-label">Decision window</div>
-          <p className="mt-2 text-zinc-300">At the moderate scenario, the plan has {model.scenarios[1].days} days of modeled runway.</p>
-        </div>
-        <ProgressBar value={(model.scenarios[1].days / 180) * 100} tone="bg-cyan-300" label="180-day stability target" />
+      <section className="card-subtle">
+        <ProgressBar value={(model.months / targetMonths) * 100} tone={model.risk.tone} label={`${targetMonths}-month target`} />
       </section>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="card">
-          <SectionHeader
-            title="Inputs"
-            description="Keep these values conservative and source-backed."
-            action={
-              <button className="btn btn-secondary px-3 py-1.5" onClick={() => setInputs(DEFAULT_INPUTS)}>
-              <RotateCcw className="h-4 w-4" /> Reset
-              </button>
-            }
-          />
+          <SectionHeader title="Snapshot inputs" description="Use conservative values and save each material change." />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="text-sm md:col-span-2">
+              <span className="mb-2 block text-zinc-400">Title</span>
+              <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} />
+            </label>
             {[
-              ['cash', 'Cash on hand'],
-              ['severance', 'Severance / payouts'],
-              ['monthlyIncome', 'Monthly transition income'],
-              ['housing', 'Housing'],
-              ['essentials', 'Essentials'],
-              ['insurance', 'Benefits / insurance'],
-              ['debtMinimums', 'Debt minimums'],
-              ['oneTimeCosts', 'One-time transition costs'],
-              ['contingency', 'Monthly contingency'],
-            ].map(([key, label]) => (
-              <label key={key} className="text-sm">
-                <span className="mb-2 block text-zinc-400">{label}</span>
+              ['Cash on hand', cash, setCash],
+              ['Severance / payouts', severance, setSeverance],
+              ['Monthly transition income', unemployment, setUnemployment],
+              ['Monthly expenses', monthlyExpenses, setMonthlyExpenses],
+              ['Target months', targetMonths, setTargetMonths],
+            ].map(([label, value, setter]) => (
+              <label key={String(label)} className="text-sm">
+                <span className="mb-2 block text-zinc-400">{String(label)}</span>
                 <input
                   className="input"
                   type="number"
                   min={0}
-                  step={50}
-                  value={inputs[key as keyof RunwayInputs]}
-                  onChange={(event) => updateInput(key as keyof RunwayInputs, event.target.value)}
+                  value={Number(value)}
+                  onChange={(event) => (setter as React.Dispatch<React.SetStateAction<number>>)(Number(event.target.value))}
                 />
               </label>
             ))}
           </div>
+          <button className="btn btn-primary mt-5" onClick={() => saveSnapshot.mutate()} disabled={saveSnapshot.isPending || !title.trim()}>
+            <Save className="h-4 w-4" /> {saveSnapshot.isPending ? 'Saving...' : 'Save snapshot'}
+          </button>
+          <SafetyNotice tone="warning">Planning guidance and risk signals only. Not financial, legal, immigration, tax, or medical advice.</SafetyNotice>
         </div>
 
         <div className="card">
-          <SectionHeader title="Action checklist" description="Risk signals become weekly operating decisions." />
-          <ul className="mt-4 space-y-3 text-sm text-zinc-300">
-            {model.actionItems.map((item) => (
-              <li key={item} className="flex gap-3">
-                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="disclaimer mt-5">
-            Planning guidance and risk signals only. Not financial, legal, immigration, tax, or medical advice.
-          </div>
+          <SectionHeader title="Saved snapshots" description="Backend-persisted and scoped to your authenticated user." />
+          {snapshots.length ? (
+            <div className="space-y-3">
+              {snapshots.map((snapshot) => {
+                const available = snapshot.savings_balance + snapshot.severance_amount;
+                const burn = Math.max(0, snapshot.monthly_expenses - snapshot.unemployment_amount);
+                const months = burn > 0 ? available / burn : snapshot.target_months;
+                const risk = riskForMonths(months);
+                return (
+                  <article key={snapshot.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h2 className="font-medium text-white">{snapshot.title}</h2>
+                        <p className="mt-1 text-xs text-zinc-500">{new Date(snapshot.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`pill border-zinc-800 bg-zinc-900 ${risk.className}`}>{risk.label}</span>
+                    </div>
+                    <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                      <div><dt className="text-xs text-zinc-500">Buffer</dt><dd>{money(available)}</dd></div>
+                      <div><dt className="text-xs text-zinc-500">Burn</dt><dd>{money(burn)}</dd></div>
+                      <div><dt className="text-xs text-zinc-500">Months</dt><dd>{months.toFixed(1)}</dd></div>
+                    </dl>
+                    <button className="btn btn-secondary mt-4 px-3 py-1.5" onClick={() => deleteSnapshot.mutate(snapshot.id)}>
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState icon={CalendarDays} title="No snapshots saved" description="Save the current model to create your first persisted runway record." />
+          )}
         </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {model.scenarios.map((scenario) => {
-          const risk = riskForDays(scenario.days);
-          return (
-            <article key={scenario.name} className={`card ${risk.border}`}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-medium text-white">{scenario.name}</h2>
-                  <p className="mt-1 text-xs text-zinc-400">{scenario.description}</p>
-                </div>
-                <Calculator className="h-5 w-5 text-zinc-400" aria-hidden="true" />
-              </div>
-              <div className="mt-5 text-4xl font-semibold tracking-tight text-white">{scenario.days}</div>
-              <div className="mt-1 text-sm text-zinc-400">days runway</div>
-              <div className="mt-5">
-                <ProgressBar value={(scenario.days / 180) * 100} tone={scenario.days < 90 ? 'bg-amber-300' : 'bg-emerald-300'} />
-              </div>
-              <dl className="mt-5 space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-zinc-500">Available</dt>
-                  <dd>{money(scenario.available)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-zinc-500">Monthly burn</dt>
-                  <dd>{money(scenario.monthlyBurn)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-zinc-500">Signal</dt>
-                  <dd className={risk.className}>{risk.label}</dd>
-                </div>
-              </dl>
-            </article>
-          );
-        })}
       </section>
     </div>
   );

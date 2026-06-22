@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -45,11 +45,15 @@ async def list_runway_snapshots(
 )
 async def create_runway_snapshot(
     payload: RunwaySnapshotCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     return await workflows.create_runway_snapshot(
-        db, current_user["id"], payload.model_dump()
+        db,
+        current_user["id"],
+        payload.model_dump(),
+        getattr(request.state, "request_id", None),
     )
 
 
@@ -57,6 +61,7 @@ async def create_runway_snapshot(
 async def update_runway_snapshot(
     snapshot_id: str,
     payload: RunwaySnapshotUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -66,6 +71,7 @@ async def update_runway_snapshot(
             current_user["id"],
             snapshot_id,
             payload.model_dump(exclude_unset=True),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -74,11 +80,17 @@ async def update_runway_snapshot(
 @router.delete("/runway/snapshots/{snapshot_id}", response_model=DeleteOut)
 async def delete_runway_snapshot(
     snapshot_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        await workflows.delete_runway_snapshot(db, current_user["id"], snapshot_id)
+        await workflows.delete_runway_snapshot(
+            db,
+            current_user["id"],
+            snapshot_id,
+            getattr(request.state, "request_id", None),
+        )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
     return DeleteOut(id=snapshot_id)
@@ -100,12 +112,16 @@ async def list_applications(
 )
 async def create_application(
     payload: ApplicationCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
         return await workflows.create_application(
-            db, current_user["id"], payload.model_dump()
+            db,
+            current_user["id"],
+            payload.model_dump(),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -115,6 +131,7 @@ async def create_application(
 async def update_application(
     application_id: str,
     payload: ApplicationUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -124,6 +141,7 @@ async def update_application(
             current_user["id"],
             application_id,
             payload.model_dump(exclude_unset=True),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -132,11 +150,17 @@ async def update_application(
 @router.delete("/applications/{application_id}", response_model=DeleteOut)
 async def delete_application(
     application_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        await workflows.delete_application(db, current_user["id"], application_id)
+        await workflows.delete_application(
+            db,
+            current_user["id"],
+            application_id,
+            getattr(request.state, "request_id", None),
+        )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
     return DeleteOut(id=application_id)
@@ -158,12 +182,16 @@ async def list_proof_assets(
 )
 async def create_proof_asset(
     payload: ProofAssetCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
         return await workflows.create_proof_asset(
-            db, current_user["id"], payload.model_dump()
+            db,
+            current_user["id"],
+            payload.model_dump(),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -173,6 +201,7 @@ async def create_proof_asset(
 async def update_proof_asset(
     asset_id: str,
     payload: ProofAssetUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -182,6 +211,7 @@ async def update_proof_asset(
             current_user["id"],
             asset_id,
             payload.model_dump(exclude_unset=True),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -190,11 +220,17 @@ async def update_proof_asset(
 @router.delete("/proof/assets/{asset_id}", response_model=DeleteOut)
 async def delete_proof_asset(
     asset_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        await workflows.delete_proof_asset(db, current_user["id"], asset_id)
+        await workflows.delete_proof_asset(
+            db,
+            current_user["id"],
+            asset_id,
+            getattr(request.state, "request_id", None),
+        )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
     return DeleteOut(id=asset_id)
@@ -218,12 +254,16 @@ async def list_interview_sessions(
 )
 async def create_interview_session(
     payload: InterviewSessionCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
         return await workflows.create_interview_session(
-            db, current_user["id"], payload.model_dump()
+            db,
+            current_user["id"],
+            payload.model_dump(),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -233,6 +273,7 @@ async def create_interview_session(
 async def update_interview_session(
     session_id: str,
     payload: InterviewSessionUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -242,6 +283,7 @@ async def update_interview_session(
             current_user["id"],
             session_id,
             payload.model_dump(exclude_unset=True),
+            getattr(request.state, "request_id", None),
         )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
@@ -250,11 +292,17 @@ async def update_interview_session(
 @router.delete("/interviews/sessions/{session_id}", response_model=DeleteOut)
 async def delete_interview_session(
     session_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        await workflows.delete_interview_session(db, current_user["id"], session_id)
+        await workflows.delete_interview_session(
+            db,
+            current_user["id"],
+            session_id,
+            getattr(request.state, "request_id", None),
+        )
     except WorkflowNotFound as exc:
         raise _not_found(exc)
     return DeleteOut(id=session_id)

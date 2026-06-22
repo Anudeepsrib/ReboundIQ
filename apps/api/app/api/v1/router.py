@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     ai_settings,
     agents,
     workflows,
+    privacy,
 )
 
 api_router = APIRouter()
@@ -18,3 +19,4 @@ api_router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
 api_router.include_router(ai_settings.router, prefix="/ai", tags=["ai-providers"])
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])
 api_router.include_router(workflows.router, tags=["workflows"])
+api_router.include_router(privacy.router, prefix="/privacy", tags=["privacy"])

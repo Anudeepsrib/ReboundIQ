@@ -23,6 +23,12 @@ export function setStoredTokens(accessToken: string, refreshToken?: string | nul
   if (refreshToken) window.localStorage.setItem('refresh_token', refreshToken);
 }
 
+export function clearStoredTokens() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem('token');
+  window.localStorage.removeItem('refresh_token');
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers = new Headers(init.headers);
@@ -48,4 +54,3 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   return payload as T;
 }
-

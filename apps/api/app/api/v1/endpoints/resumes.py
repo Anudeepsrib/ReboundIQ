@@ -9,6 +9,7 @@ from app.services.resume import (
     upload_and_parse_resume,
     create_resume_version,
     list_user_resumes,
+    list_user_resume_versions,
 )
 from app.core.security import get_current_user
 
@@ -24,6 +25,7 @@ class ResumeOut(BaseModel):
 
 class ResumeVersionOut(BaseModel):
     id: str
+    resume_id: Optional[str] = None
     version_name: str
     target_role: Optional[str]
     content_json: dict
@@ -99,3 +101,19 @@ async def list_resumes(
 ):
     items = await list_user_resumes(db, current_user["id"])
     return items
+
+
+@router.get("/versions", response_model=List[ResumeVersionOut])
+async def list_versions(
+    db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)
+):
+    return await list_user_resume_versions(db, current_user["id"])
+
+
+@router.get("/{resume_id}/versions", response_model=List[ResumeVersionOut])
+async def list_versions_for_resume(
+    resume_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    return await list_user_resume_versions(db, current_user["id"], resume_id=resume_id)

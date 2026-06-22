@@ -349,3 +349,27 @@ async def list_user_resumes(db: AsyncSession, user_id: str) -> list[dict]:
         }
         for r in items
     ]
+
+
+async def list_user_resume_versions(
+    db: AsyncSession, user_id: str, resume_id: str | None = None
+) -> list[dict]:
+    """List resume versions for a user, optionally under one source resume."""
+    stmt = select(ResumeVersion).where(ResumeVersion.user_id == user_id)
+    if resume_id:
+        stmt = stmt.where(ResumeVersion.resume_id == resume_id)
+    stmt = stmt.order_by(ResumeVersion.created_at.desc())
+    res = await db.execute(stmt)
+    versions = res.scalars().all()
+    return [
+        {
+            "id": version.id,
+            "resume_id": version.resume_id,
+            "version_name": version.version_name,
+            "target_role": version.target_role,
+            "content_json": version.content_json,
+            "ats_score": version.ats_score,
+            "created_at": version.created_at,
+        }
+        for version in versions
+    ]

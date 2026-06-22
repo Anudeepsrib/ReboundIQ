@@ -7,6 +7,10 @@ from .agent_campaigns import AgentCampaign
 from .agent_tool_calls import AgentToolCall
 from .agent_approval_requests import AgentApprovalRequest
 from .workflows import RunwaySnapshot, ApplicationRecord, ProofAsset, InterviewSession
+from .action_audit_logs import ActionAuditLog
+from .consent_records import ConsentRecord
+from .memory_candidates import MemoryCandidate
+from .memory_reflections import MemoryReflection
 
 AIRequestLog = AIRequest
 
@@ -25,6 +29,10 @@ __all__ = [
     "ApplicationRecord",
     "ProofAsset",
     "InterviewSession",
+    "ActionAuditLog",
+    "ConsentRecord",
+    "MemoryCandidate",
+    "MemoryReflection",
 ]
 # job_application, document, agent_campaigns, memory_records etc added in later migrations / PRs
 # ai_requests added in PR-4 for full audit of gateway calls (redacted + consent + full_audit_jsonb)

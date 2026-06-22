@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, FileSearch, Gauge, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, CirclePlus, FileSearch, Gauge, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiFetch, getStoredToken } from '@/lib/api';
 
 type MatchResult = {
@@ -24,17 +25,46 @@ type MatchResult = {
   recruiter_message_draft?: string;
 };
 
+type Resume = {
+  id: string;
+  original_filename: string;
+};
+
+type ResumeVersion = {
+  id: string;
+  resume_id?: string;
+  version_name: string;
+  target_role?: string | null;
+};
+
 function pct(value?: number) {
   return Math.round((value || 0) * 100);
 }
 
 export default function JobsAnalyzer() {
+  const queryClient = useQueryClient();
   const [jd, setJd] = useState('');
   const [resumeText, setResumeText] = useState('');
+  const [resumeId, setResumeId] = useState('');
+  const [resumeVersionId, setResumeVersionId] = useState('');
+  const [company, setCompany] = useState('');
+  const [role, setRole] = useState('');
   const [result, setResult] = useState<MatchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [token] = useState(() => getStoredToken());
+
+  const resumesQuery = useQuery({
+    queryKey: ['resumes'],
+    queryFn: () => apiFetch<Resume[]>('/api/v1/resumes/'),
+    enabled: Boolean(token),
+  });
+
+  const versionsQuery = useQuery({
+    queryKey: ['resume-versions'],
+    queryFn: () => apiFetch<ResumeVersion[]>('/api/v1/resumes/versions'),
+    enabled: Boolean(token),
+  });
 
   async function analyze() {
     if (!jd.trim()) return;
@@ -43,7 +73,12 @@ export default function JobsAnalyzer() {
     try {
       const data = await apiFetch<MatchResult>('/api/v1/jobs/analyze', {
         method: 'POST',
-        body: JSON.stringify({ jd_text: jd, resume_text: resumeText || undefined }),
+        body: JSON.stringify({
+          jd_text: jd,
+          resume_text: resumeText || undefined,
+          resume_id: resumeId || undefined,
+          resume_version_id: resumeVersionId || undefined,
+        }),
       });
       setResult(data);
     } catch (requestError) {
@@ -52,6 +87,30 @@ export default function JobsAnalyzer() {
       setLoading(false);
     }
   }
+
+  const saveApplication = useMutation({
+    mutationFn: () =>
+      apiFetch('/api/v1/applications', {
+        method: 'POST',
+        body: JSON.stringify({
+          company: company.trim() || 'Unknown company',
+          role: role.trim() || 'Target role',
+          status: 'saved',
+          jd_snapshot: jd.slice(0, 12000),
+          notes: result?.rewrite_strategy || 'Created from JD match analysis.',
+          next_step: 'Review evidence fit and decide whether to apply.',
+          fit_score: result?.match_score || 0,
+          resume_version_id: resumeVersionId || null,
+          sponsorship_signal: result?.red_flags?.join('; ') || 'unknown',
+          metadata_json: {
+            source: 'jd_analysis',
+            citations: result?.citations || [],
+            groundedness_score: result?.groundedness_score || 0,
+          },
+        }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['applications'] }),
+  });
 
   return (
     <div className="space-y-8">
@@ -98,6 +157,34 @@ export default function JobsAnalyzer() {
               className="input h-56 font-mono text-xs leading-5"
             />
           </label>
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="text-sm">
+              <span className="mb-2 block text-zinc-400">Company</span>
+              <input value={company} onChange={(event) => setCompany(event.target.value)} className="input" placeholder="Company name" />
+            </label>
+            <label className="text-sm">
+              <span className="mb-2 block text-zinc-400">Role</span>
+              <input value={role} onChange={(event) => setRole(event.target.value)} className="input" placeholder="Target role" />
+            </label>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="text-sm">
+              <span className="mb-2 block text-zinc-400">Stored resume</span>
+              <select className="input" value={resumeId} onChange={(event) => { setResumeId(event.target.value); setResumeVersionId(''); }}>
+                <option value="">No stored resume selected</option>
+                {(resumesQuery.data || []).map((resume) => <option key={resume.id} value={resume.id}>{resume.original_filename}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-2 block text-zinc-400">Resume version</span>
+              <select className="input" value={resumeVersionId} onChange={(event) => setResumeVersionId(event.target.value)}>
+                <option value="">No version selected</option>
+                {(versionsQuery.data || [])
+                  .filter((version) => !resumeId || version.resume_id === resumeId)
+                  .map((version) => <option key={version.id} value={version.id}>{version.version_name}</option>)}
+              </select>
+            </label>
+          </div>
           <label className="mt-4 block text-sm">
             <span className="mb-2 block text-zinc-400">Resume or profile excerpt</span>
             <textarea
@@ -110,6 +197,9 @@ export default function JobsAnalyzer() {
           <button onClick={analyze} disabled={loading || !jd.trim() || !token} className="btn btn-primary mt-5">
             <Sparkles className="h-4 w-4" /> {loading ? 'Analyzing...' : 'Analyze JD'}
           </button>
+          {!resumeId && !resumeVersionId && !resumeText.trim() && (
+            <div className="mt-3 text-xs text-amber-300">No resume evidence selected. Analysis will extract JD requirements but will not infer personal fit.</div>
+          )}
           {error && <div className="mt-4 rounded-lg border border-red-400/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</div>}
         </div>
 
@@ -199,7 +289,13 @@ export default function JobsAnalyzer() {
             <div className="mt-3 whitespace-pre-wrap leading-6 text-zinc-300">{result.rewrite_strategy}</div>
             <h2 className="section-title mt-6">Recruiter message draft</h2>
             <div className="mt-3 whitespace-pre-wrap rounded-lg border border-white/10 bg-black/25 p-4 text-xs leading-5 text-zinc-300">
-              {result.recruiter_message_draft}
+              {result.recruiter_message_draft || 'No recruiter draft generated because resume evidence is missing.'}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button className="btn btn-primary" onClick={() => saveApplication.mutate()} disabled={saveApplication.isPending || !result}>
+                <CirclePlus className="h-4 w-4" /> {saveApplication.isPending ? 'Saving...' : 'Save as application'}
+              </button>
+              <a href="/applications" className="btn btn-secondary">Open pipeline</a>
             </div>
             <div className="disclaimer mt-3">Edit heavily. Do not send fabricated claims.</div>
           </div>

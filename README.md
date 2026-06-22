@@ -43,6 +43,8 @@ user opts in, and deterministic backend services remain authoritative.
   groundedness/confidence signals.
 - **AI provider settings** for local Ollama status, installed model discovery,
   suggested local tags, and runtime local model selection.
+- **Privacy controls** for authenticated JSON data export, stored file payloads,
+  consent records, and hard account deletion.
 - **Supervised agent backend** for CareerCampaignAgent campaigns, typed tools,
   ComplianceGuard checks, tool-call audit logs, and human approval checkpoints.
 - **Golden evals** for safety, groundedness, redaction, schema, tool fidelity,
@@ -67,10 +69,13 @@ Core authenticated backend routes include:
 - `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
   `GET /api/v1/auth/me`
 - `POST /api/v1/resumes/upload`,
-  `POST /api/v1/resumes/{resume_id}/versions`, `GET /api/v1/resumes`
+  `POST /api/v1/resumes/{resume_id}/versions`, `GET /api/v1/resumes`,
+  `GET /api/v1/resumes/versions`,
+  `GET /api/v1/resumes/{resume_id}/versions`
 - `POST /api/v1/jobs/analyze`
 - `GET /api/v1/ai/status`, `GET /api/v1/ai/local-models`,
-  `POST /api/v1/ai/local-models/select`
+  `POST /api/v1/ai/local-models/select`,
+  `POST /api/v1/ai/consent/external-ai`
 - `GET|POST /api/v1/runway/snapshots`,
   `PATCH|DELETE /api/v1/runway/snapshots/{snapshot_id}`
 - `GET|POST /api/v1/applications`,
@@ -79,6 +84,8 @@ Core authenticated backend routes include:
   `PATCH|DELETE /api/v1/proof/assets/{asset_id}`
 - `GET|POST /api/v1/interviews/sessions`,
   `PATCH|DELETE /api/v1/interviews/sessions/{session_id}`
+- `GET /api/v1/privacy/export`,
+  `POST /api/v1/privacy/delete-account`
 - `POST /api/v1/agents/campaigns`,
   `POST /api/v1/agents/campaigns/{campaign_id}/run`,
   `GET /api/v1/agents/approvals`,
@@ -140,6 +147,7 @@ ReboundIQ treats career AI as a high-trust surface:
 
 - external AI is off by default;
 - redaction is required before any external call;
+- external consent is persisted per user in consent records;
 - all AI requests flow through `AIGateway`;
 - ComplianceGuard runs on generation paths;
 - user-facing artifacts require human approval checkpoints;
@@ -185,10 +193,9 @@ for the implementation rules that coding agents and contributors must preserve.
 
 ## Roadmap
 
-- Wire the web workflow pages to the authenticated workflow APIs.
-- Add authenticated user export and hard-delete flows across all product tables.
 - Persist per-user local AI preferences instead of process-local runtime
   selection.
+- Add reminder scheduling and notification delivery for application next steps.
 - Expand proof, interview, outreach, and campaign generation only through
   `AIGateway`, redaction, ComplianceGuard, citations, eval cases, and human
   approval.

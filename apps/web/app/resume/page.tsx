@@ -1,21 +1,29 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, FileText, LockKeyhole, Upload, WandSparkles } from 'lucide-react';
 import { apiFetch, getStoredToken } from '@/lib/api';
 
 type ResumeUploadResult = {
   id: string;
   original_filename: string;
+  created_at?: string;
+  has_parsed?: boolean;
 };
 
 type ResumeVersionResult = {
+  id: string;
+  resume_id?: string;
   version_name: string;
   ats_score: number;
   content_json: Record<string, unknown>;
+  target_role?: string | null;
+  created_at?: string;
 };
 
 export default function ResumePage() {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<ResumeUploadResult | null>(null);
   const [targetRole, setTargetRole] = useState('AI Engineer');
@@ -23,6 +31,18 @@ export default function ResumePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [token] = useState(() => getStoredToken());
+
+  const resumesQuery = useQuery({
+    queryKey: ['resumes'],
+    queryFn: () => apiFetch<ResumeUploadResult[]>('/api/v1/resumes/'),
+    enabled: Boolean(token),
+  });
+
+  const versionsQuery = useQuery({
+    queryKey: ['resume-versions'],
+    queryFn: () => apiFetch<ResumeVersionResult[]>('/api/v1/resumes/versions'),
+    enabled: Boolean(token),
+  });
 
   async function handleUpload() {
     if (!file) return;
@@ -33,6 +53,7 @@ export default function ResumePage() {
     try {
       const data = await apiFetch<ResumeUploadResult>('/api/v1/resumes/upload', { method: 'POST', body: fd });
       setUploadResult(data);
+      queryClient.invalidateQueries({ queryKey: ['resumes'] });
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Resume upload failed');
     } finally {
@@ -49,6 +70,7 @@ export default function ResumePage() {
     try {
       const data = await apiFetch<ResumeVersionResult>(`/api/v1/resumes/${uploadResult.id}/versions`, { method: 'POST', body: fd });
       setVersion(data);
+      queryClient.invalidateQueries({ queryKey: ['resume-versions'] });
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Version create failed');
     } finally {
@@ -143,7 +165,7 @@ export default function ResumePage() {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="section-title">{version.version_name}</h2>
-              <p className="mt-1 text-xs text-zinc-500">ATS score {version.ats_score} in this demo slice</p>
+              <p className="mt-1 text-xs text-zinc-500">ATS score {version.ats_score}</p>
             </div>
             <span className="pill border-cyan-400/20 bg-cyan-400/10 text-cyan-200">Editable draft</span>
           </div>
@@ -153,6 +175,38 @@ export default function ResumePage() {
           <div className="disclaimer mt-3">Source: your uploaded resume. Edit before use. Citations appear in the full RAG workflow.</div>
         </section>
       )}
+
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="card">
+          <h2 className="section-title">Resume library</h2>
+          <div className="mt-4 space-y-3">
+            {(resumesQuery.data || []).map((resume) => (
+              <article key={resume.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-sm">
+                <div className="font-medium text-white">{resume.original_filename}</div>
+                <div className="mt-1 break-all text-xs text-zinc-500">{resume.id}</div>
+                <button className="btn btn-secondary mt-3 px-3 py-1.5" onClick={() => setUploadResult(resume)}>
+                  Use for new version
+                </button>
+              </article>
+            ))}
+            {!resumesQuery.data?.length && <div className="text-sm text-zinc-500">No uploaded resumes yet.</div>}
+          </div>
+        </div>
+
+        <div className="card">
+          <h2 className="section-title">Version history</h2>
+          <div className="mt-4 space-y-3">
+            {(versionsQuery.data || []).map((item) => (
+              <article key={item.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-sm">
+                <div className="font-medium text-white">{item.version_name}</div>
+                <div className="mt-1 text-xs text-zinc-500">{item.target_role || 'No target role'} | ATS {item.ats_score ?? 'n/a'}</div>
+                <a className="btn btn-secondary mt-3 px-3 py-1.5" href="/jobs">Use in JD match</a>
+              </article>
+            ))}
+            {!versionsQuery.data?.length && <div className="text-sm text-zinc-500">No tailored versions yet.</div>}
+          </div>
+        </div>
+      </section>
 
       <section className="card-subtle grid grid-cols-1 gap-3 text-sm text-zinc-400 md:grid-cols-3">
         <div>Original files are never overwritten.</div>

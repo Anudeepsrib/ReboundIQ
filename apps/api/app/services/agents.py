@@ -15,7 +15,9 @@ from app.agents.state import CampaignAgentState
 from app.core.logging import logger
 from app.models.agent_approval_requests import AgentApprovalRequest
 from app.models.agent_campaigns import AgentCampaign
+from app.models.workflows import InterviewSession, ProofAsset
 from app.schemas.agents import CampaignCreateRequest, CampaignRunRequest
+from app.services.audit import log_action
 
 
 async def create_campaign(
@@ -235,10 +237,110 @@ async def decide_approval(
         }
         campaign.metadata_json = metadata
         campaign.status = "completed" if status == "approved" else "blocked"
+        if status == "approved":
+            await _promote_approved_checkpoint(
+                db=db,
+                user_id=user_id,
+                campaign=campaign,
+                approval=approval,
+            )
 
     await db.commit()
     await db.refresh(approval)
     return approval
+
+
+async def _promote_approved_checkpoint(
+    *,
+    db: AsyncSession,
+    user_id: str,
+    campaign: AgentCampaign,
+    approval: AgentApprovalRequest,
+) -> None:
+    payload = approval.artifact_json or {}
+    artifacts = payload.get("artifacts") if isinstance(payload, dict) else []
+    if not isinstance(artifacts, list):
+        return
+    target_roles = (campaign.metadata_json or {}).get("target_roles") or []
+    target_role = str(target_roles[0]) if target_roles else "Target role"
+
+    promoted: list[dict[str, Any]] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_type = str(artifact.get("artifact_type") or "proof_plan")
+        title = str(artifact.get("title") or artifact_type.replace("_", " ").title())
+        content = artifact.get("content") if isinstance(artifact.get("content"), dict) else {}
+        citations = artifact.get("citations") if isinstance(artifact.get("citations"), list) else []
+        common_meta = {
+            "source": "campaign_approval",
+            "campaign_id": campaign.id,
+            "approval_id": approval.id,
+            "artifact_type": artifact_type,
+        }
+        if artifact_type == "interview_plan":
+            session = InterviewSession(
+                user_id=user_id,
+                target_role=target_role,
+                company=None,
+                interview_type="mixed",
+                status="planned",
+                focus_areas_json=["behavioral", "system_design", "ai_rag"],
+                question_log_json=[],
+                feedback_json=content,
+                metadata_json=common_meta,
+            )
+            db.add(session)
+            await db.flush()
+            promoted.append({"type": "interview_session", "id": session.id})
+            await log_action(
+                db,
+                user_id=user_id,
+                action="promote_campaign_artifact",
+                resource_type="interview_sessions",
+                resource_id=session.id,
+                metadata=common_meta,
+            )
+        else:
+            asset = ProofAsset(
+                user_id=user_id,
+                title=title[:220],
+                asset_type=_proof_asset_type(artifact_type),
+                status="approved",
+                summary=str(content.get("summary") or content.get("draft") or "")[:4000],
+                content_json=content,
+                citations_json=citations,
+                metadata_json=common_meta,
+            )
+            db.add(asset)
+            await db.flush()
+            promoted.append({"type": "proof_asset", "id": asset.id})
+            await log_action(
+                db,
+                user_id=user_id,
+                action="promote_campaign_artifact",
+                resource_type="proof_assets",
+                resource_id=asset.id,
+                metadata=common_meta,
+            )
+
+    metadata = dict(campaign.metadata_json or {})
+    metadata["last_promotion"] = {
+        "approval_id": approval.id,
+        "promoted": promoted,
+        "promoted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    campaign.metadata_json = metadata
+
+
+def _proof_asset_type(artifact_type: str) -> str:
+    mapping = {
+        "proof_plan": "case_study",
+        "resume_strategy": "architecture_note",
+        "jd_gap_analysis": "architecture_note",
+        "outreach_email": "linkedin_post",
+    }
+    return mapping.get(artifact_type, "case_study")
 
 
 def _run_response(

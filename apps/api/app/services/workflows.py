@@ -13,6 +13,7 @@ from app.models.workflows import (
     ProofAsset,
     RunwaySnapshot,
 )
+from app.services.audit import log_action
 
 WorkflowRecord = TypeVar(
     "WorkflowRecord", RunwaySnapshot, ApplicationRecord, ProofAsset, InterviewSession
@@ -85,9 +86,20 @@ async def _create_record(
     model: type[WorkflowRecord],
     user_id: str,
     payload: dict[str, Any],
+    request_id: str | None = None,
 ) -> WorkflowRecord:
     item = model(user_id=user_id, **payload)
     db.add(item)
+    await db.flush()
+    await log_action(
+        db,
+        user_id=user_id,
+        action="create",
+        resource_type=model.__tablename__,
+        resource_id=item.id,
+        request_id=request_id,
+        metadata={"fields": sorted(payload.keys())},
+    )
     await db.commit()
     await db.refresh(item)
     return item
@@ -99,20 +111,42 @@ async def _update_record(
     user_id: str,
     item_id: str,
     payload: dict[str, Any],
+    request_id: str | None = None,
 ) -> WorkflowRecord:
     item = await _get_owned(db, model, user_id, item_id)
     for key, value in payload.items():
         setattr(item, key, value)
+    await log_action(
+        db,
+        user_id=user_id,
+        action="update",
+        resource_type=model.__tablename__,
+        resource_id=item_id,
+        request_id=request_id,
+        metadata={"fields": sorted(payload.keys())},
+    )
     await db.commit()
     await db.refresh(item)
     return item
 
 
 async def _soft_delete(
-    db: AsyncSession, model: type[WorkflowRecord], user_id: str, item_id: str
+    db: AsyncSession,
+    model: type[WorkflowRecord],
+    user_id: str,
+    item_id: str,
+    request_id: str | None = None,
 ) -> None:
     item = await _get_owned(db, model, user_id, item_id)
     item.deleted_at = datetime.now(timezone.utc)
+    await log_action(
+        db,
+        user_id=user_id,
+        action="delete",
+        resource_type=model.__tablename__,
+        resource_id=item_id,
+        request_id=request_id,
+    )
     await db.commit()
 
 
@@ -123,21 +157,27 @@ async def list_runway_snapshots(
 
 
 async def create_runway_snapshot(
-    db: AsyncSession, user_id: str, payload: dict[str, Any]
+    db: AsyncSession, user_id: str, payload: dict[str, Any], request_id: str | None = None
 ) -> RunwaySnapshot:
-    return await _create_record(db, RunwaySnapshot, user_id, payload)
+    return await _create_record(db, RunwaySnapshot, user_id, payload, request_id)
 
 
 async def update_runway_snapshot(
-    db: AsyncSession, user_id: str, snapshot_id: str, payload: dict[str, Any]
+    db: AsyncSession,
+    user_id: str,
+    snapshot_id: str,
+    payload: dict[str, Any],
+    request_id: str | None = None,
 ) -> RunwaySnapshot:
-    return await _update_record(db, RunwaySnapshot, user_id, snapshot_id, payload)
+    return await _update_record(
+        db, RunwaySnapshot, user_id, snapshot_id, payload, request_id
+    )
 
 
 async def delete_runway_snapshot(
-    db: AsyncSession, user_id: str, snapshot_id: str
+    db: AsyncSession, user_id: str, snapshot_id: str, request_id: str | None = None
 ) -> None:
-    await _soft_delete(db, RunwaySnapshot, user_id, snapshot_id)
+    await _soft_delete(db, RunwaySnapshot, user_id, snapshot_id, request_id)
 
 
 async def list_applications(
@@ -147,22 +187,30 @@ async def list_applications(
 
 
 async def create_application(
-    db: AsyncSession, user_id: str, payload: dict[str, Any]
+    db: AsyncSession, user_id: str, payload: dict[str, Any], request_id: str | None = None
 ) -> ApplicationRecord:
     await _ensure_resume_version_owned(db, user_id, payload.get("resume_version_id"))
-    return await _create_record(db, ApplicationRecord, user_id, payload)
+    return await _create_record(db, ApplicationRecord, user_id, payload, request_id)
 
 
 async def update_application(
-    db: AsyncSession, user_id: str, application_id: str, payload: dict[str, Any]
+    db: AsyncSession,
+    user_id: str,
+    application_id: str,
+    payload: dict[str, Any],
+    request_id: str | None = None,
 ) -> ApplicationRecord:
     if "resume_version_id" in payload:
         await _ensure_resume_version_owned(db, user_id, payload.get("resume_version_id"))
-    return await _update_record(db, ApplicationRecord, user_id, application_id, payload)
+    return await _update_record(
+        db, ApplicationRecord, user_id, application_id, payload, request_id
+    )
 
 
-async def delete_application(db: AsyncSession, user_id: str, application_id: str) -> None:
-    await _soft_delete(db, ApplicationRecord, user_id, application_id)
+async def delete_application(
+    db: AsyncSession, user_id: str, application_id: str, request_id: str | None = None
+) -> None:
+    await _soft_delete(db, ApplicationRecord, user_id, application_id, request_id)
 
 
 async def list_proof_assets(
@@ -172,22 +220,28 @@ async def list_proof_assets(
 
 
 async def create_proof_asset(
-    db: AsyncSession, user_id: str, payload: dict[str, Any]
+    db: AsyncSession, user_id: str, payload: dict[str, Any], request_id: str | None = None
 ) -> ProofAsset:
     await _ensure_application_owned(db, user_id, payload.get("linked_application_id"))
-    return await _create_record(db, ProofAsset, user_id, payload)
+    return await _create_record(db, ProofAsset, user_id, payload, request_id)
 
 
 async def update_proof_asset(
-    db: AsyncSession, user_id: str, asset_id: str, payload: dict[str, Any]
+    db: AsyncSession,
+    user_id: str,
+    asset_id: str,
+    payload: dict[str, Any],
+    request_id: str | None = None,
 ) -> ProofAsset:
     if "linked_application_id" in payload:
         await _ensure_application_owned(db, user_id, payload.get("linked_application_id"))
-    return await _update_record(db, ProofAsset, user_id, asset_id, payload)
+    return await _update_record(db, ProofAsset, user_id, asset_id, payload, request_id)
 
 
-async def delete_proof_asset(db: AsyncSession, user_id: str, asset_id: str) -> None:
-    await _soft_delete(db, ProofAsset, user_id, asset_id)
+async def delete_proof_asset(
+    db: AsyncSession, user_id: str, asset_id: str, request_id: str | None = None
+) -> None:
+    await _soft_delete(db, ProofAsset, user_id, asset_id, request_id)
 
 
 async def list_interview_sessions(
@@ -197,21 +251,27 @@ async def list_interview_sessions(
 
 
 async def create_interview_session(
-    db: AsyncSession, user_id: str, payload: dict[str, Any]
+    db: AsyncSession, user_id: str, payload: dict[str, Any], request_id: str | None = None
 ) -> InterviewSession:
     await _ensure_application_owned(db, user_id, payload.get("linked_application_id"))
-    return await _create_record(db, InterviewSession, user_id, payload)
+    return await _create_record(db, InterviewSession, user_id, payload, request_id)
 
 
 async def update_interview_session(
-    db: AsyncSession, user_id: str, session_id: str, payload: dict[str, Any]
+    db: AsyncSession,
+    user_id: str,
+    session_id: str,
+    payload: dict[str, Any],
+    request_id: str | None = None,
 ) -> InterviewSession:
     if "linked_application_id" in payload:
         await _ensure_application_owned(db, user_id, payload.get("linked_application_id"))
-    return await _update_record(db, InterviewSession, user_id, session_id, payload)
+    return await _update_record(
+        db, InterviewSession, user_id, session_id, payload, request_id
+    )
 
 
 async def delete_interview_session(
-    db: AsyncSession, user_id: str, session_id: str
+    db: AsyncSession, user_id: str, session_id: str, request_id: str | None = None
 ) -> None:
-    await _soft_delete(db, InterviewSession, user_id, session_id)
+    await _soft_delete(db, InterviewSession, user_id, session_id, request_id)

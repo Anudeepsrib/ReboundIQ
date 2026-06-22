@@ -16,6 +16,7 @@ class Storage(Protocol):
         self, key: str, data: bytes, content_type: str = "application/octet-stream"
     ) -> str: ...
     async def get(self, key: str) -> bytes: ...
+    async def delete_prefix(self, prefix: str) -> int: ...
 
 
 class LocalStorage:
@@ -43,6 +44,29 @@ class LocalStorage:
         p = self._safe_path(key)
         async with aiofiles.open(p, "rb") as f:
             return await f.read()
+
+    async def delete_prefix(self, prefix: str) -> int:
+        root = self.root.resolve()
+        target = (self.root / prefix).resolve()
+        if not str(target).startswith(str(root)):
+            raise ValueError("Invalid storage prefix")
+        if not target.exists():
+            return 0
+        deleted = 0
+        for path in sorted(target.rglob("*"), reverse=True):
+            if path.is_file():
+                path.unlink()
+                deleted += 1
+            elif path.is_dir():
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
+        try:
+            target.rmdir()
+        except OSError:
+            pass
+        return deleted
 
 
 class S3Storage:
@@ -87,6 +111,29 @@ class S3Storage:
             return resp["Body"].read()
 
         return await asyncio.to_thread(_get)
+
+    async def delete_prefix(self, prefix: str) -> int:
+        def _delete() -> int:
+            deleted = 0
+            continuation = None
+            while True:
+                kwargs = {"Bucket": self.bucket, "Prefix": prefix}
+                if continuation:
+                    kwargs["ContinuationToken"] = continuation
+                resp = self.s3.list_objects_v2(**kwargs)
+                objects = [{"Key": item["Key"]} for item in resp.get("Contents", [])]
+                if objects:
+                    self.s3.delete_objects(
+                        Bucket=self.bucket,
+                        Delete={"Objects": objects, "Quiet": True},
+                    )
+                    deleted += len(objects)
+                if not resp.get("IsTruncated"):
+                    break
+                continuation = resp.get("NextContinuationToken")
+            return deleted
+
+        return await asyncio.to_thread(_delete)
 
 
 def get_storage() -> Storage:

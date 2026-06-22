@@ -44,7 +44,7 @@ export default function Onboarding() {
       />
 
       <section className="card">
-        <SectionHeader title="Recommended setup order" description="Each step maps to a working route in this demo slice." />
+        <SectionHeader title="Recommended setup order" description="Each step maps to a working product route." />
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {steps.map((step, index) => {
             const Icon = step.icon;

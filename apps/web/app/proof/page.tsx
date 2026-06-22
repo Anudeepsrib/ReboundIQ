@@ -1,18 +1,36 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clipboard, FileCheck2, Save, ShieldCheck, Trash2, Trophy } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, Clipboard, FileCheck2, LockKeyhole, Save, ShieldCheck, Trash2, Trophy } from 'lucide-react';
+import { apiFetch, getStoredToken } from '@/lib/api';
 import { EmptyState, MetricCard, PageHeader, ProgressBar, SectionHeader } from '@/components/product-ui';
 
-const ASSET_TYPES = ['STAR story', 'Architecture narrative', 'GitHub README', 'LinkedIn post'] as const;
+const ASSET_TYPES = [
+  ['star_story', 'STAR story'],
+  ['case_study', 'Case study'],
+  ['architecture_note', 'Architecture note'],
+  ['github_readme', 'GitHub README'],
+  ['linkedin_post', 'LinkedIn post'],
+] as const;
 
-type AssetType = (typeof ASSET_TYPES)[number];
-
-type ProofDraft = {
+type ProofAsset = {
+  id: string;
   title: string;
-  assetType: AssetType;
-  targetRole: string;
-  sourceEvidence: string;
+  asset_type: string;
+  status: string;
+  summary?: string | null;
+  content_json?: Record<string, unknown> | null;
+  citations_json?: Array<string | Record<string, unknown>> | null;
+  metadata_json?: Record<string, unknown> | null;
+  created_at: string;
+};
+
+type Draft = {
+  title: string;
+  asset_type: string;
+  target_role: string;
+  source_evidence: string;
   situation: string;
   task: string;
   action: string;
@@ -21,137 +39,51 @@ type ProofDraft = {
   citations: string;
 };
 
-type SavedAsset = {
-  id: string;
-  title: string;
-  assetType: AssetType;
-  targetRole: string;
-  coverage: number;
-  createdAt: string;
-};
-
-const STORAGE_KEY = 'reboundiq.proof-assets.v1';
-
-const DEFAULT_DRAFT: ProofDraft = {
+const DEFAULT_DRAFT: Draft = {
   title: 'Privacy-first AI gateway rollout',
-  assetType: 'Architecture narrative',
-  targetRole: 'Senior AI Platform Engineer',
-  sourceEvidence: 'Design doc, gateway implementation notes, eval results, audit log schema.',
+  asset_type: 'architecture_note',
+  target_role: 'Senior AI Platform Engineer',
+  source_evidence: 'Design doc, gateway implementation notes, eval results, audit log schema.',
   situation: 'The product needed AI-assisted career workflows without exposing personal data by default.',
   task: 'Design a provider-neutral path where local Ollama remained the default and external providers required consent.',
-  action:
-    'Introduced a single AI gateway, routed generation through redaction and compliance checks, and kept deterministic services authoritative.',
-  result: 'The system could support resume and JD workflows while preserving user isolation, auditability, and manual approval.',
+  action: 'Introduced a single AI gateway, redaction checks, compliance review, and audit records.',
+  result: 'The system supported resume and JD workflows while preserving user isolation and manual approval.',
   metric: '',
   citations: 'README local-first policy; AGENTS.md non-negotiables; ai_requests schema.',
 };
 
-function parseSavedAssets(raw: string | null) {
-  if (!raw) return [] as SavedAsset[];
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((asset): asset is SavedAsset => {
-      return (
-        typeof asset?.id === 'string' &&
-        typeof asset.title === 'string' &&
-        ASSET_TYPES.includes(asset.assetType) &&
-        typeof asset.coverage === 'number'
-      );
-    });
-  } catch {
-    return [];
-  }
+function assetLabel(value: string) {
+  return ASSET_TYPES.find(([key]) => key === value)?.[1] || value.replaceAll('_', ' ');
 }
 
-function coverageForDraft(draft: ProofDraft) {
-  const fields: Array<keyof ProofDraft> = [
-    'title',
-    'targetRole',
-    'sourceEvidence',
-    'situation',
-    'task',
-    'action',
-    'result',
-    'citations',
-  ];
-  const completed = fields.filter((field) => draft[field].trim().length > 0).length;
-  return Math.round((completed / fields.length) * 100);
+function coverageForDraft(draft: Draft) {
+  const fields: Array<keyof Draft> = ['title', 'target_role', 'source_evidence', 'situation', 'task', 'action', 'result', 'citations'];
+  return Math.round((fields.filter((field) => String(draft[field]).trim()).length / fields.length) * 100);
 }
 
-function buildDraftText(draft: ProofDraft) {
+function buildDraftText(draft: Draft) {
   const metric = draft.metric.trim() || 'Metric not provided; keep this claim qualitative until evidence exists.';
+  return `${draft.title || 'Proof Asset'}
 
-  if (draft.assetType === 'STAR story') {
-    return `Title: ${draft.title}
-Target role: ${draft.targetRole}
+Target role
+${draft.target_role || 'Target role missing.'}
 
-Situation: ${draft.situation || 'Situation evidence missing.'}
-Task: ${draft.task || 'Task evidence missing.'}
-Action: ${draft.action || 'Action evidence missing.'}
-Result: ${draft.result || 'Result evidence missing.'}
-Metric / proof: ${metric}
+Situation
+${draft.situation || 'Situation evidence missing.'}
 
-Citations: ${draft.citations || 'Citations missing.'}`;
-  }
+Task
+${draft.task || 'Task evidence missing.'}
 
-  if (draft.assetType === 'GitHub README') {
-    return `# ${draft.title || 'Proof Asset'}
+Action
+${draft.action || 'Action evidence missing.'}
 
-## Problem
-${draft.situation || 'Problem evidence missing.'}
-
-## My Contribution
-${draft.action || 'Contribution evidence missing.'}
-
-## Result
+Result
 ${draft.result || 'Result evidence missing.'}
 
-## Evidence
-${draft.sourceEvidence || 'Evidence sources missing.'}
-
-## Boundaries
-${metric}
-
-## Citations
-${draft.citations || 'Citations missing.'}`;
-  }
-
-  if (draft.assetType === 'LinkedIn post') {
-    return `${draft.title}
-
-I worked on a problem where ${draft.situation || '[situation evidence missing]'}
-
-My role was to ${draft.task || '[task evidence missing]'}.
-
-The useful part was the design tradeoff: ${draft.action || '[action evidence missing]'}
-
-Outcome: ${draft.result || '[result evidence missing]'}
-
-Evidence I can point to: ${draft.sourceEvidence || '[evidence missing]'}
-
-${metric}`;
-  }
-
-  return `${draft.title || 'Architecture narrative'}
-
-Context
-${draft.situation || 'Context evidence missing.'}
-
-Responsibility
-${draft.task || 'Responsibility evidence missing.'}
-
-Architecture / decision
-${draft.action || 'Architecture decision evidence missing.'}
-
-Outcome
-${draft.result || 'Outcome evidence missing.'}
-
 Evidence
-${draft.sourceEvidence || 'Evidence sources missing.'}
+${draft.source_evidence || 'Evidence sources missing.'}
 
-Measurement
+Metric / boundary
 ${metric}
 
 Citations
@@ -159,139 +91,101 @@ ${draft.citations || 'Citations missing.'}`;
 }
 
 export default function ProofBuilder() {
-  const [draft, setDraft] = useState<ProofDraft>(DEFAULT_DRAFT);
-  const [savedAssets, setSavedAssets] = useState<SavedAsset[]>([]);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const queryClient = useQueryClient();
+  const [token] = useState(() => getStoredToken());
+  const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    setSavedAssets(parseSavedAssets(window.localStorage.getItem(STORAGE_KEY)));
-    setIsHydrated(true);
-  }, []);
+  const assetsQuery = useQuery({
+    queryKey: ['proof-assets'],
+    queryFn: () => apiFetch<ProofAsset[]>('/api/v1/proof/assets'),
+    enabled: Boolean(token),
+  });
 
-  useEffect(() => {
-    if (!isHydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedAssets));
-  }, [savedAssets, isHydrated]);
-
-  const draftText = useMemo(() => buildDraftText(draft), [draft]);
   const coverage = useMemo(() => coverageForDraft(draft), [draft]);
-  const gaps = useMemo(() => {
-    const checks = [
-      ['Source evidence', draft.sourceEvidence],
-      ['Situation', draft.situation],
-      ['Task', draft.task],
-      ['Action', draft.action],
-      ['Result', draft.result],
-      ['Citations', draft.citations],
-    ];
-    return checks.filter(([, value]) => !value.trim()).map(([label]) => label);
-  }, [draft]);
+  const draftText = useMemo(() => buildDraftText(draft), [draft]);
+  const gaps = useMemo(
+    () =>
+      [
+        ['Source evidence', draft.source_evidence],
+        ['Situation', draft.situation],
+        ['Task', draft.task],
+        ['Action', draft.action],
+        ['Result', draft.result],
+        ['Citations', draft.citations],
+      ].filter(([, value]) => !String(value).trim()),
+    [draft],
+  );
+
+  const saveAsset = useMutation({
+    mutationFn: () =>
+      apiFetch<ProofAsset>('/api/v1/proof/assets', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: draft.title,
+          asset_type: draft.asset_type,
+          status: coverage >= 90 ? 'ready' : 'draft',
+          summary: draft.result,
+          content_json: { ...draft, draft_text: draftText, planning_guidance_only: true },
+          citations_json: draft.citations.split(';').map((item) => item.trim()).filter(Boolean),
+          metadata_json: { target_role: draft.target_role, evidence_coverage: coverage },
+        }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proof-assets'] }),
+  });
+
+  const deleteAsset = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/v1/proof/assets/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proof-assets'] }),
+  });
 
   async function copyDraft() {
     await navigator.clipboard.writeText(draftText);
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
-  function saveAsset() {
-    if (!draft.title.trim()) return;
-
-    setSavedAssets((current) => [
-      {
-        id: `proof-${Date.now()}`,
-        title: draft.title.trim(),
-        assetType: draft.assetType,
-        targetRole: draft.targetRole,
-        coverage,
-        createdAt: new Date().toISOString().slice(0, 10),
-      },
-      ...current,
-    ]);
+  if (!token) {
+    return (
+      <div className="space-y-6">
+        <PageHeader eyebrow="Proof builder" title="Login to save proof assets" description="Proof assets are persisted behind authenticated user isolation." actions={<span className="pill border-amber-400/20 bg-amber-400/10 text-amber-100"><LockKeyhole className="h-3.5 w-3.5" /> Login required</span>} />
+        <a href="/login" className="btn btn-primary">Login / Create Demo User</a>
+      </div>
+    );
   }
 
-  function deleteAsset(id: string) {
-    setSavedAssets((current) => current.filter((asset) => asset.id !== id));
-  }
+  const assets = assetsQuery.data || [];
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow="Proof builder"
-        title="Turn evidence into usable proof"
-        description="Draft STAR stories, architecture narratives, READMEs, and posts while keeping missing evidence visible."
-        actions={
-          <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
-            <ShieldCheck className="h-3.5 w-3.5" /> No fabricated metrics
-          </span>
-        }
-      />
+      <PageHeader eyebrow="Proof builder" title="Turn evidence into persisted proof" description="Draft STAR stories, architecture notes, case studies, and posts while keeping missing evidence visible." actions={<span className="pill border-emerald-900 bg-emerald-950 text-emerald-300"><ShieldCheck className="h-3.5 w-3.5" /> No fabricated metrics</span>} />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard label="Evidence coverage" value={`${coverage}%`} detail="required fields completed" icon={Trophy} tone="text-emerald-300" />
-        <MetricCard label="Open gaps" value={gaps.length} detail="fields still visible to resolve" icon={FileCheck2} tone={gaps.length ? 'text-amber-300' : 'text-emerald-300'} />
-        <MetricCard label="Saved assets" value={savedAssets.length} detail="stored locally in this browser" icon={Save} tone="text-cyan-300" />
+        <MetricCard label="Open gaps" value={gaps.length} detail="fields still visible" icon={FileCheck2} tone={gaps.length ? 'text-amber-300' : 'text-emerald-300'} />
+        <MetricCard label="Saved assets" value={assets.length} detail="backend persisted" icon={Save} tone="text-cyan-300" />
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="card">
-          <SectionHeader
-            title="Evidence form"
-            description="Write the story from known source material first, then decide where it can be reused."
-            action={
-            <span className="pill border-zinc-800 bg-zinc-950 text-zinc-300">
-              <Trophy className="h-3.5 w-3.5" /> {coverage}% coverage
-            </span>
-            }
-          />
-          <div className="mb-5">
-            <ProgressBar value={coverage} tone={coverage < 80 ? 'bg-amber-300' : 'bg-emerald-300'} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="text-sm md:col-span-2">
-              <span className="mb-2 block text-zinc-400">Title</span>
-              <input className="input" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-2 block text-zinc-400">Asset type</span>
-              <select
-                className="input"
-                value={draft.assetType}
-                onChange={(event) => setDraft({ ...draft, assetType: event.target.value as AssetType })}
-              >
-                {ASSET_TYPES.map((type) => (
-                  <option key={type}>{type}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
-              <span className="mb-2 block text-zinc-400">Target role</span>
-              <input className="input" value={draft.targetRole} onChange={(event) => setDraft({ ...draft, targetRole: event.target.value })} />
-            </label>
-            <label className="text-sm md:col-span-2">
-              <span className="mb-2 block text-zinc-400">Source evidence</span>
-              <textarea
-                className="input h-20"
-                value={draft.sourceEvidence}
-                onChange={(event) => setDraft({ ...draft, sourceEvidence: event.target.value })}
-              />
-            </label>
+          <SectionHeader title="Evidence form" description="Write from known source material, then save to your proof library." />
+          <ProgressBar value={coverage} tone={coverage >= 90 ? 'bg-emerald-300' : 'bg-amber-300'} />
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="text-sm md:col-span-2"><span className="mb-2 block text-zinc-400">Title</span><input className="input" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+            <label className="text-sm"><span className="mb-2 block text-zinc-400">Asset type</span><select className="input" value={draft.asset_type} onChange={(event) => setDraft({ ...draft, asset_type: event.target.value })}>{ASSET_TYPES.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
+            <label className="text-sm"><span className="mb-2 block text-zinc-400">Target role</span><input className="input" value={draft.target_role} onChange={(event) => setDraft({ ...draft, target_role: event.target.value })} /></label>
             {[
+              ['source_evidence', 'Source evidence'],
               ['situation', 'Situation'],
               ['task', 'Task'],
               ['action', 'Action'],
               ['result', 'Result'],
               ['metric', 'Metric / proof'],
               ['citations', 'Citations'],
-            ].map(([key, label]) => (
+            ].map(([key, text]) => (
               <label key={key} className="text-sm md:col-span-2">
-                <span className="mb-2 block text-zinc-400">{label}</span>
-                <textarea
-                  className="input h-20"
-                  value={draft[key as keyof ProofDraft]}
-                  onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
-                />
+                <span className="mb-2 block text-zinc-400">{text}</span>
+                <textarea className="input h-20" value={String(draft[key as keyof Draft])} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} />
               </label>
             ))}
           </div>
@@ -299,73 +193,33 @@ export default function ProofBuilder() {
 
         <div className="space-y-4">
           <section className="card">
-            <SectionHeader
-              title="Draft preview"
-              description="Missing evidence is rendered as explicit placeholders instead of being inferred."
-              action={
-                <div className="flex flex-wrap gap-2">
-                <button className="btn btn-secondary px-3 py-1.5" onClick={copyDraft}>
-                  <Clipboard className="h-4 w-4" /> {copied ? 'Copied' : 'Copy'}
-                </button>
-                <button className="btn btn-primary px-3 py-1.5" onClick={saveAsset} disabled={!draft.title.trim()}>
-                  <Save className="h-4 w-4" /> Save
-                </button>
-              </div>
-              }
-            />
-            <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm leading-relaxed text-zinc-200">
-              {draftText}
-            </pre>
-            <div className="disclaimer mt-3">Review before use. Any missing evidence remains visible instead of being inferred.</div>
+            <SectionHeader title="Draft preview" description="Missing evidence remains explicit." action={<div className="flex gap-2"><button className="btn btn-secondary px-3 py-1.5" onClick={copyDraft}><Clipboard className="h-4 w-4" /> {copied ? 'Copied' : 'Copy'}</button><button className="btn btn-primary px-3 py-1.5" onClick={() => saveAsset.mutate()} disabled={saveAsset.isPending || !draft.title.trim()}><Save className="h-4 w-4" /> Save</button></div>} />
+            <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm leading-relaxed text-zinc-200">{draftText}</pre>
           </section>
-
           <section className="card">
-            <SectionHeader title="Evidence gaps" description="Resolve these before treating a draft as ready." />
-            {gaps.length ? (
-              <ul className="mt-4 space-y-2 text-sm text-amber-300">
-                {gaps.map((gap) => (
-                  <li key={gap} className="flex items-center gap-2">
-                    <FileCheck2 className="h-4 w-4" aria-hidden="true" /> {gap}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState icon={CheckCircle2} title="Core evidence is present" description="The draft still needs human review, but the required source fields are filled." />
-            )}
+            <SectionHeader title="Evidence gaps" description="Resolve these before treating the draft as ready." />
+            {gaps.length ? <ul className="space-y-2 text-sm text-amber-300">{gaps.map(([gap]) => <li key={gap}>{gap}</li>)}</ul> : <EmptyState icon={CheckCircle2} title="Core evidence is present" description="The draft still needs human review, but required source fields are filled." />}
           </section>
         </div>
       </section>
 
       <section className="card">
-        <SectionHeader
-          title="Local proof board"
-          description="Saved proof assets remain browser-local in this demo slice."
-          action={
-          <span className="text-xs text-zinc-500">{savedAssets.length} saved</span>
-          }
-        />
-        {savedAssets.length ? (
+        <SectionHeader title="Proof library" description="Saved records come from the authenticated backend, including approved campaign artifacts." />
+        {assets.length ? (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-            {savedAssets.map((asset) => (
+            {assets.map((asset) => (
               <article key={asset.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-medium text-white">{asset.title}</h3>
-                    <p className="mt-1 text-xs text-zinc-500">{asset.assetType} for {asset.targetRole}</p>
-                  </div>
-                  <button className="btn btn-secondary px-2 py-1" onClick={() => deleteAsset(asset.id)} aria-label={`Delete ${asset.title}`}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div><h3 className="font-medium text-white">{asset.title}</h3><p className="mt-1 text-xs text-zinc-500">{assetLabel(asset.asset_type)} | {asset.status}</p></div>
+                  <button className="btn btn-secondary px-2 py-1" onClick={() => deleteAsset.mutate(asset.id)} aria-label={`Delete ${asset.title}`}><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
-                <div className="mt-4 h-1.5 rounded bg-zinc-800">
-                  <div className="h-1.5 rounded bg-emerald-500" style={{ width: `${asset.coverage}%` }} />
-                </div>
-                <div className="mt-2 text-xs text-zinc-400">{asset.coverage}% evidence coverage • {asset.createdAt}</div>
+                <p className="mt-3 line-clamp-4 text-sm text-zinc-400">{asset.summary || 'No summary yet.'}</p>
+                <div className="mt-3 text-xs text-zinc-500">{new Date(asset.created_at).toLocaleDateString()}</div>
               </article>
             ))}
           </div>
         ) : (
-          <EmptyState icon={Trophy} title="No saved proof assets yet" description="Save the current draft to start building a reusable proof library." />
+          <EmptyState icon={Trophy} title="No proof assets yet" description="Save a draft or approve a campaign artifact to build your library." />
         )}
       </section>
     </div>

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Bot, CheckCircle2, Cpu, PlugZap, RefreshCcw, Save, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { EmptyState, MetricCard, PageHeader, ProgressBar, SectionHeader, SafetyNotice } from '@/components/product-ui';
+import { apiFetch, getStoredToken } from '@/lib/api';
 
 type ProviderStatus = {
   provider: string;
@@ -70,6 +71,7 @@ function uniqueModels(values: string[]) {
 }
 
 export default function AIProviders() {
+  const [token] = useState(() => getStoredToken());
   const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [modelInfo, setModelInfo] = useState<LocalModelsResponse | null>(null);
   const [chatModel, setChatModel] = useState('llama3.2:1b');
@@ -152,15 +154,23 @@ export default function AIProviders() {
   }
 
   async function toggleExternal() {
+    if (!token) {
+      setSaveResult({ ok: false, error: 'Login required to persist external AI consent.' });
+      return;
+    }
     setLoading(true);
     try {
-      const response = await fetch(`${API}/api/v1/ai/consent/external-ai`, {
+      const data = await apiFetch<ActionResult & { external_now?: boolean; consent_id?: string }>('/api/v1/ai/consent/external-ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enable_external: enable, consent_text: consentText }),
       });
-      setSaveResult((await response.json()) as ActionResult);
+      setSaveResult({
+        ok: data.ok,
+        warning: data.warning || (data.consent_id ? `Consent recorded: ${data.consent_id}` : undefined),
+      });
       await load();
+    } catch (error) {
+      setSaveResult({ ok: false, error: error instanceof Error ? error.message : 'Consent update failed' });
     } finally {
       setLoading(false);
     }
@@ -340,6 +350,7 @@ export default function AIProviders() {
       <section className="card">
         <SectionHeader title="External AI consent" description="External AI stays disabled by default. Enabling it requires consent, redaction, and audit logging." />
         <ProgressBar value={enable ? 66 : 33} tone={enable ? 'bg-amber-300' : 'bg-emerald-300'} label="consent gate readiness" />
+        {!token && <SafetyNotice tone="warning">Login is required to persist or revoke external AI consent for your user profile.</SafetyNotice>}
         <label className="flex items-center gap-2 text-sm mb-3">
           <input type="checkbox" checked={enable} onChange={(event) => setEnable(event.target.checked)} /> Enable external providers after consent
         </label>

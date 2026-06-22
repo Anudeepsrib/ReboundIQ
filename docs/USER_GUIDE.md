@@ -56,7 +56,7 @@ Access:
 - **API Docs**: http://localhost:8000/docs
 - **MinIO Console** (for uploaded files): http://localhost:9001 (user: `reboundiq`, pass from `.env.example`)
 
-Login is currently demo-mode (hardcoded "demo-user"). Full auth in later increments.
+Login creates or reuses a JWT-backed local user. Records are scoped to the authenticated user.
 
 See `docs/LOCAL_AI_SETUP.md` for Windows/WSL2, GPU, non-Docker, and model tips.
 
@@ -84,16 +84,16 @@ Top nav (always visible):
 - **Runway** — Scenario-based cash runway planner with planning disclaimers.
 - **Resume** — Upload, parse, create role-targeted versions.
 - **JD Match** — Paste job descriptions for extraction + evidence-based matching.
-- **Applications** — Local demo pipeline with JD snapshots, scorecards, and follow-up signals.
+- **Applications** — Authenticated pipeline with JD snapshots, scorecards, and follow-up signals.
 - **Proof** — Evidence-first proof assets such as STAR stories, READMEs, and architecture narratives.
-- **Interview** — Question drills, evidence checklist, self-score, and local practice history.
+- **Interview** — Question drills, evidence checklist, self-score, and persisted practice history.
 - **Campaigns** — Launch deep agent workflows (supervisor + sub-agents for resume overhaul, outreach batches, etc.).
 - **AI Settings** — Provider status, toggle external AI + record consent.
 - **Privacy** — Consent records, data export/delete controls.
 
 Footer always reminds: *Planning guidance only. Not legal/financial/immigration advice.*
 
-Some pages use browser-local demo state. Full API-backed CRUD, history, RAG citations, and production persistence arrive in subsequent PRs.
+Runway, application, proof, and interview records are persisted through authenticated API-backed workflows.
 
 ## Key Workflows
 
@@ -107,7 +107,7 @@ Some pages use browser-local demo state. Full API-backed CRUD, history, RAG cita
 
 **Storage**: Originals go to user-isolated paths in local storage (or MinIO in Docker). Versions are separate records.
 
-**In full build**: Version history UI, side-by-side diff, ATS scoring breakdown, export to PDF/Markdown, RAG citations from your private KB.
+Version history is visible in the UI. Future enhancements include side-by-side diff, ATS scoring breakdown, export to PDF/Markdown, and richer RAG citations from your private KB.
 
 ### JD Analysis & Matching
 1. Go to **JD Match**.
@@ -121,7 +121,7 @@ Some pages use browser-local demo state. Full API-backed CRUD, history, RAG cita
    - Recruiter message draft + cover letter starting point
    - Citations (which parts of JD drove each claim)
 
-Upload your resume first for better personalization in future increments.
+Upload or select a stored resume/resume version before expecting personal fit claims. Without evidence, ReboundIQ reports missing evidence instead of inferring your background.
 
 **Safety**: All drafts contain warnings. Edit out any overclaims.
 
@@ -137,11 +137,11 @@ Go to **Runway**.
 ### Application Tracking
 Go to **Applications**.
 
-- Add opportunities with company, role, match score, priority, resume version, sponsorship signal, and notes.
+- Add opportunities with company, role, fit score, JD snapshot, next step, resume version link, sponsorship signal, and notes.
 - Move records across Saved, Applied, Recruiter, Tech, System Design, Manager, Final, Offer, Rejected, and Withdrawn.
 - Use scorecards and follow-up due signals to decide what needs attention.
 
-Current slice: data is browser-local demo state. Full backend CRUD, authenticated user isolation, event history, and reminder jobs arrive later.
+Application records are stored in the backend with authenticated user isolation and action-audit logging.
 
 Manual only — no auto-apply.
 
@@ -150,7 +150,7 @@ Go to **Proof**.
 
 - Choose STAR story, architecture narrative, GitHub README, or LinkedIn post.
 - Fill in evidence, situation, task, action, result, metrics, and citations.
-- Save proof assets to the local proof board.
+- Save proof assets to the authenticated proof library.
 
 Missing evidence stays visible in the draft instead of being inferred.
 
@@ -159,7 +159,7 @@ Go to **Interview**.
 
 - Select Behavioral, System Design, AI/RAG, Backend, or Leadership.
 - Practice with question prompts, expected evidence, likely follow-ups, and answer notes.
-- Use the checklist and sliders to save a local practice score.
+- Use the checklist and sliders to save a persisted practice score.
 
 Scores are practice signals only, not hiring predictions.
 
@@ -197,8 +197,9 @@ Test connection buttons help verify Ollama or your LiteLLM proxy.
 ### Privacy & Data Control
 Go to **Privacy**.
 
-- View recorded consent events.
-- Export all your data (ZIP of uploads + structured records).
+- View external-AI consent status.
+- Export your data as a JSON archive with structured records, consent history,
+  and readable stored file payloads encoded for portability.
 - Hard delete account + all artifacts (cascades where appropriate).
 
 All user data is isolated by `user_id`. Row-level checks are enforced in services.
