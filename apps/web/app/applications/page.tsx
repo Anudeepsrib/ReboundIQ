@@ -7,12 +7,15 @@ import {
   CalendarClock,
   CheckCircle2,
   CirclePlus,
+  Columns3,
   FileText,
+  List,
   RotateCcw,
   Search,
   ShieldCheck,
   Target,
 } from 'lucide-react';
+import { EmptyState, MetricCard, PageHeader, ProgressBar, SectionHeader } from '@/components/product-ui';
 
 const STAGES = [
   'Saved',
@@ -257,41 +260,41 @@ export default function Applications() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Application Tracker</h1>
-          <p className="mt-1 text-sm text-zinc-400">Manual pipeline, grounded snapshots, follow-up pressure, no auto-apply.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        eyebrow="Application tracker"
+        title="Manual pipeline with useful pressure"
+        description="Track target roles, grounded snapshots, follow-up timing, and interview movement without auto-apply behavior."
+        actions={
+          <>
           <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Manual send only
           </span>
           <span className="pill border-zinc-800 bg-zinc-900 text-zinc-300">
             <FileText className="h-3.5 w-3.5" /> JD snapshots local
           </span>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="card">
-          <div className="text-sm text-zinc-400">Active</div>
-          <div className="metric mt-2">{metrics.active}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-zinc-400">Follow-ups</div>
-          <div className="metric mt-2 text-amber-300">{metrics.due}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-zinc-400">Average match</div>
-          <div className="metric mt-2">{metrics.avgMatch}%</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-zinc-400">Interview loops</div>
-          <div className="metric mt-2 text-cyan-300">{metrics.interviews}</div>
+        <MetricCard label="Active" value={metrics.active} detail="roles still in play" icon={Columns3} />
+        <MetricCard label="Follow-ups" value={metrics.due} detail="due today or tomorrow" icon={CalendarClock} tone="text-amber-300" />
+        <MetricCard label="Average match" value={`${metrics.avgMatch}%`} detail="across tracked roles" icon={Target} tone="text-emerald-300" />
+        <MetricCard label="Interview loops" value={metrics.interviews} detail="technical or manager stages" icon={List} tone="text-cyan-300" />
+      </section>
+
+      <section className="card-subtle">
+        <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-[0.8fr_1.2fr] md:items-center">
+          <div>
+            <div className="muted-label">Pipeline health</div>
+            <p className="mt-2 text-zinc-300">{metrics.active} active roles with {metrics.interviews} interview-stage conversations.</p>
+          </div>
+          <ProgressBar value={applications.length ? (metrics.interviews / applications.length) * 100 : 0} tone="bg-cyan-300" label="interview-stage share" />
         </div>
       </section>
 
       <section className="card">
+        <SectionHeader title="Add target role" description="Keep each application tied to a resume version and JD snapshot." />
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
           <label className="flex-1 text-sm">
             <span className="mb-2 block text-zinc-400">Company</span>
@@ -391,7 +394,66 @@ export default function Applications() {
         </button>
       </section>
 
-      <section className="overflow-x-auto pb-3">
+      <section className="card lg:hidden">
+        <SectionHeader title="Compact list" description="Mobile-friendly view of the filtered pipeline." />
+        {filteredApplications.length ? (
+          <div className="space-y-3">
+            {filteredApplications.map((app) => {
+              const dueDays = daysUntil(app.followUpDue);
+              const dueClass = dueDays <= 0 ? 'text-red-300' : dueDays <= 2 ? 'text-amber-300' : 'text-zinc-400';
+              return (
+                <article key={app.id} className="rounded-lg border border-white/10 bg-black/20 p-4 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="font-semibold leading-snug text-white">{app.company}</h2>
+                      <p className="mt-1 text-xs text-zinc-400">{app.role}</p>
+                    </div>
+                    <span className="pill border-white/10 bg-white/[0.04] text-zinc-300">{app.stage}</span>
+                  </div>
+                  <div className="mt-4">
+                    <ProgressBar value={app.match} tone="bg-emerald-300" label={`${app.match}% match`} />
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+                    <div className="flex items-center gap-1.5">
+                      <CalendarClock className={`h-3.5 w-3.5 ${dueClass}`} />
+                      <span className={dueClass}>{formatDueLabel(app.followUpDue)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Target className="h-3.5 w-3.5 text-cyan-300" />
+                      <span>{app.priority} priority</span>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-zinc-300">{app.nextAction}</p>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <button
+                      className="btn btn-secondary px-2 py-1"
+                      onClick={() => moveApplication(app.id, -1)}
+                      disabled={STAGES.indexOf(app.stage) === 0}
+                      aria-label={`Move ${app.company} backward`}
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="text-[10px] text-zinc-500">{app.sponsorshipSignal}</span>
+                    <button
+                      className="btn btn-secondary px-2 py-1"
+                      onClick={() => moveApplication(app.id, 1)}
+                      disabled={STAGES.indexOf(app.stage) === STAGES.length - 1}
+                      aria-label={`Move ${app.company} forward`}
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState icon={Search} title="No matching applications" description="Adjust the search or stage filter to bring roles back into view." />
+        )}
+      </section>
+
+      <section className="hidden overflow-x-auto pb-3 lg:block scroll-panel">
+        <SectionHeader title="Kanban board" description="Large-screen pipeline view with explicit stage movement controls." />
         <div className="grid min-w-[1480px] grid-cols-10 gap-3">
           {STAGES.map((stage) => {
             const stageApps = filteredApplications.filter((app) => app.stage === stage);

@@ -3,31 +3,97 @@
 @tailwind utilities;
 
 :root {
-  --background: 9 9 11;
+  --background: 12 11 10;
+  --surface: 21 20 18;
+  --surface-strong: 28 27 24;
+  --line: 255 255 255;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(20, 20, 18, 0.96) 0%, rgba(10, 10, 10, 1) 58%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 96px),
+    rgb(var(--background));
+  color: rgb(244 244 245);
   font-feature-settings: "tnum";
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.28);
+  color: white;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(125 211 252);
+  outline-offset: 3px;
+}
+
+.nav-link {
+  @apply inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-transparent px-3 text-sm font-medium text-zinc-400 transition-colors hover:border-white/10 hover:bg-white/[0.04] hover:text-white;
+}
+
+.nav-link-active {
+  @apply border-emerald-400/20 bg-emerald-400/10 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)];
+}
+
+.trust-chip {
+  @apply flex min-h-9 items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-zinc-300;
+}
+
+.status-dot {
+  @apply h-2 w-2 rounded-full;
+}
+
+.status-dot-safe {
+  @apply bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.55)];
 }
 
 .card {
-  @apply bg-zinc-900 border border-zinc-800 rounded-lg p-5;
+  @apply rounded-lg border border-white/10 bg-stone-950/70 p-5 shadow-[0_14px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.05)];
+}
+
+.card-subtle {
+  @apply rounded-lg border border-white/10 bg-neutral-900/45 p-5;
+}
+
+.interactive-card {
+  @apply transition-colors hover:border-white/20 hover:bg-neutral-900/80;
 }
 
 .input {
-  @apply bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-60;
+  @apply w-full rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] placeholder:text-zinc-600 focus:border-cyan-300/70 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-primary {
-  @apply bg-white text-black hover:bg-zinc-200;
+  @apply bg-emerald-300 text-neutral-950 hover:bg-emerald-200;
 }
 
 .btn-secondary {
-  @apply bg-zinc-800 hover:bg-zinc-700 border border-zinc-700;
+  @apply border border-white/10 bg-white/[0.06] text-zinc-100 hover:border-white/20 hover:bg-white/[0.1];
+}
+
+.btn-danger {
+  @apply border border-red-400/30 bg-red-500/10 text-red-200 hover:bg-red-500/15;
 }
 
 .warning {
@@ -35,11 +101,11 @@ body {
 }
 
 .disclaimer {
-  @apply text-[10px] text-zinc-500 mt-1;
+  @apply mt-1 text-[11px] leading-relaxed text-zinc-500;
 }
 
 .pill {
-  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs;
+  @apply inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium;
 }
 
 .metric {
@@ -47,5 +113,47 @@ body {
 }
 
 .section-title {
-  @apply text-sm font-medium text-zinc-200;
+  @apply text-sm font-semibold text-zinc-100;
+}
+
+.page-header {
+  @apply flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between;
+}
+
+.eyebrow {
+  @apply text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300/90;
+}
+
+.muted-label {
+  @apply text-xs font-medium uppercase tracking-wide text-zinc-500;
+}
+
+.stat-card {
+  @apply rounded-lg border border-white/10 bg-neutral-900/55 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)];
+}
+
+.progress-track {
+  @apply h-2 overflow-hidden rounded-full bg-black/35;
+}
+
+.progress-fill {
+  @apply h-full rounded-full bg-emerald-300;
+}
+
+.scroll-panel {
+  scrollbar-color: rgb(82 82 91) transparent;
+}
+
+.scroll-panel::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.scroll-panel::-webkit-scrollbar-thumb {
+  background: rgb(82 82 91);
+  border-radius: 999px;
+}
+
+.scroll-panel::-webkit-scrollbar-track {
+  background: transparent;
 }

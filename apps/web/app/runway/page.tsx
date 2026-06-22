@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Calculator, CalendarDays, CircleDollarSign, Gauge, RotateCcw, ShieldAlert, WalletCards } from 'lucide-react';
+import { MetricCard, PageHeader, ProgressBar, SectionHeader } from '@/components/product-ui';
 
 type RunwayInputs = {
   cash: number;
@@ -123,49 +124,61 @@ export default function RunwayPlanner() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Runway Planner</h1>
-          <p className="mt-1 text-sm text-zinc-400">Cash runway, burn-rate scenarios, and weekly risk signals.</p>
-        </div>
-        <span className={`pill ${model.risk.border}`}>
-          <Gauge className="h-3.5 w-3.5" />
-          <span className={model.risk.className}>{model.risk.label} risk</span>
-        </span>
-      </header>
+      <PageHeader
+        eyebrow="Runway planner"
+        title="Model your transition window"
+        description="Cash runway, burn-rate scenarios, and weekly risk signals for planning conversations."
+        actions={
+          <span className={`pill ${model.risk.border}`}>
+            <Gauge className="h-3.5 w-3.5" />
+            <span className={model.risk.className}>{model.risk.label} risk</span>
+          </span>
+        }
+      />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="card">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <WalletCards className="h-4 w-4 text-emerald-300" /> Available buffer
-          </div>
-          <div className="metric mt-3">{money(model.baseAvailable)}</div>
-          <div className="mt-2 text-xs text-zinc-500">Cash plus severance minus one-time transition costs.</div>
+        <MetricCard
+          label="Available buffer"
+          value={money(model.baseAvailable)}
+          detail="Cash plus severance minus one-time transition costs."
+          icon={WalletCards}
+          tone="text-emerald-300"
+        />
+        <MetricCard
+          label="Monthly burn"
+          value={money(model.baseMonthlyBurn)}
+          detail="Expenses and contingency after expected monthly income."
+          icon={CircleDollarSign}
+          tone="text-amber-300"
+        />
+        <MetricCard
+          label="Moderate runway"
+          value={`${model.scenarios[1].days} days`}
+          detail={`${Math.round(model.scenarios[1].days / 30.4375)} months at current inputs.`}
+          icon={CalendarDays}
+          tone="text-cyan-300"
+        />
+      </section>
+
+      <section className="card-subtle grid grid-cols-1 gap-4 text-sm md:grid-cols-[0.7fr_1.3fr] md:items-center">
+        <div>
+          <div className="muted-label">Decision window</div>
+          <p className="mt-2 text-zinc-300">At the moderate scenario, the plan has {model.scenarios[1].days} days of modeled runway.</p>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <CircleDollarSign className="h-4 w-4 text-amber-300" /> Monthly burn
-          </div>
-          <div className="metric mt-3">{money(model.baseMonthlyBurn)}</div>
-          <div className="mt-2 text-xs text-zinc-500">Expenses and contingency after expected monthly income.</div>
-        </div>
-        <div className="card">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <CalendarDays className="h-4 w-4 text-cyan-300" /> Moderate runway
-          </div>
-          <div className="metric mt-3">{model.scenarios[1].days} days</div>
-          <div className="mt-2 text-xs text-zinc-500">{Math.round(model.scenarios[1].days / 30.4375)} months at current inputs.</div>
-        </div>
+        <ProgressBar value={(model.scenarios[1].days / 180) * 100} tone="bg-cyan-300" label="180-day stability target" />
       </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="section-title">Inputs</h2>
-            <button className="btn btn-secondary px-3 py-1.5" onClick={() => setInputs(DEFAULT_INPUTS)}>
+          <SectionHeader
+            title="Inputs"
+            description="Keep these values conservative and source-backed."
+            action={
+              <button className="btn btn-secondary px-3 py-1.5" onClick={() => setInputs(DEFAULT_INPUTS)}>
               <RotateCcw className="h-4 w-4" /> Reset
-            </button>
-          </div>
+              </button>
+            }
+          />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {[
               ['cash', 'Cash on hand'],
@@ -194,7 +207,7 @@ export default function RunwayPlanner() {
         </div>
 
         <div className="card">
-          <h2 className="section-title">Action checklist</h2>
+          <SectionHeader title="Action checklist" description="Risk signals become weekly operating decisions." />
           <ul className="mt-4 space-y-3 text-sm text-zinc-300">
             {model.actionItems.map((item) => (
               <li key={item} className="flex gap-3">
@@ -223,6 +236,9 @@ export default function RunwayPlanner() {
               </div>
               <div className="mt-5 text-4xl font-semibold tracking-tight text-white">{scenario.days}</div>
               <div className="mt-1 text-sm text-zinc-400">days runway</div>
+              <div className="mt-5">
+                <ProgressBar value={(scenario.days / 180) * 100} tone={scenario.days < 90 ? 'bg-amber-300' : 'bg-emerald-300'} />
+              </div>
               <dl className="mt-5 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-zinc-500">Available</dt>

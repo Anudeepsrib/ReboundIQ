@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, ClipboardList, History, MessageSquareText, RotateCcw, Save, SlidersHorizontal } from 'lucide-react';
+import { EmptyState, MetricCard, PageHeader, ProgressBar, SectionHeader } from '@/components/product-ui';
 
 const FOCUS_AREAS = ['Behavioral', 'System Design', 'AI/RAG', 'Backend', 'Leadership'] as const;
 const CHECKS = ['STAR structure', 'Specific project evidence', 'Named tradeoff', 'No fabricated metric', 'Clear boundary'] as const;
@@ -185,20 +186,25 @@ export default function InterviewPrep() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Interview Prep</h1>
-          <p className="mt-1 text-sm text-zinc-400">Practice questions, evidence checks, and local score history.</p>
-        </div>
-        <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Evidence first
-        </span>
-      </header>
+      <PageHeader
+        eyebrow="Interview prep"
+        title="Practice with evidence and boundaries"
+        description="Use focused question sets, self-scoring, and local attempt history to tighten answers before interviews."
+        actions={
+          <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Evidence first
+          </span>
+        }
+      />
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard label="Focus" value={focus} detail={`${focusedQuestions.length} prompts in this set`} icon={SlidersHorizontal} tone="text-cyan-300" />
+        <MetricCard label="Current score" value={`${score}/100`} detail={`${checkedCount}/${CHECKS.length} evidence checks`} icon={ClipboardList} tone={score >= 75 ? 'text-emerald-300' : 'text-amber-300'} />
+        <MetricCard label="Saved attempts" value={attempts.length} detail="stored locally in this browser" icon={History} tone="text-violet-300" />
+      </section>
 
       <section className="card">
-        <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-          <SlidersHorizontal className="h-4 w-4" /> Focus
-        </div>
+        <SectionHeader title="Focus area" description="Switch sets without losing saved attempts." />
         <div className="flex flex-wrap gap-2">
           {FOCUS_AREAS.map((area) => (
             <button
@@ -224,6 +230,10 @@ export default function InterviewPrep() {
               <h2 className="mt-2 text-2xl font-semibold leading-snug text-white">{currentQuestion.prompt}</h2>
             </div>
             <span className="pill border-zinc-800 bg-zinc-950 text-zinc-300">{score}/100</span>
+          </div>
+
+          <div className="mb-5">
+            <ProgressBar value={score} tone={score >= 75 ? 'bg-emerald-300' : 'bg-amber-300'} label="answer readiness" />
           </div>
 
           <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
@@ -262,9 +272,7 @@ export default function InterviewPrep() {
 
         <div className="space-y-4">
           <section className="card">
-            <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-              <ClipboardList className="h-4 w-4" /> Evidence checklist
-            </div>
+            <SectionHeader title="Evidence checklist" description="The answer should stay specific and bounded." />
             <div className="space-y-3">
               {CHECKS.map((check) => (
                 <label key={check} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm">
@@ -280,9 +288,7 @@ export default function InterviewPrep() {
           </section>
 
           <section className="card">
-            <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-              <MessageSquareText className="h-4 w-4" /> Self score
-            </div>
+            <SectionHeader title="Self score" description="Local practice signal, not a hiring prediction." />
             <label className="block text-sm">
               <span className="mb-2 flex items-center justify-between text-zinc-400">
                 Clarity <span>{clarity}/5</span>
@@ -301,12 +307,11 @@ export default function InterviewPrep() {
       </section>
 
       <section className="card">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <History className="h-4 w-4" /> Recent attempts
-          </div>
-          <span className="text-xs text-zinc-500">{attempts.length} saved</span>
-        </div>
+        <SectionHeader
+          title="Recent attempts"
+          description="A lightweight record of practice loops completed on this device."
+          action={<span className="text-xs text-zinc-500">{attempts.length} saved</span>}
+        />
         {attempts.length ? (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
             {attempts.map((attempt) => (
@@ -321,7 +326,7 @@ export default function InterviewPrep() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-zinc-400">Saved attempts stay in this browser for the demo slice.</p>
+          <EmptyState icon={MessageSquareText} title="No attempts saved yet" description="Write notes for a prompt and save the attempt to start a local practice history." />
         )}
       </section>
     </div>

@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  Bot,
   CheckCircle2,
   ClipboardCheck,
   FileText,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch, getStoredToken } from '@/lib/api';
+import { EmptyState, MetricCard, PageHeader, SectionHeader, SafetyNotice } from '@/components/product-ui';
 
 type Campaign = {
   id: string;
@@ -264,45 +264,55 @@ export default function Campaigns() {
   if (!token) {
     return (
       <div className="space-y-6">
-        <header>
-          <h1 className="text-3xl font-semibold tracking-tight">Career Campaigns</h1>
-          <p className="mt-1 text-sm text-zinc-400">Authenticated supervised agent runs with citations and approvals.</p>
-        </header>
-        <section className="card max-w-xl">
-          <div className="flex items-center gap-2 text-sm text-amber-300">
-            <LockKeyhole className="h-4 w-4" /> Login required
-          </div>
-          <p className="mt-3 text-sm text-zinc-400">Campaigns use user-isolated backend records and need a JWT.</p>
+        <PageHeader
+          eyebrow="Campaign cockpit"
+          title="Supervised agent runs need authentication"
+          description="Campaigns create user-isolated plans, cited draft artifacts, and approval checkpoints tied to a JWT-backed API session."
+          actions={
+            <span className="pill border-amber-400/20 bg-amber-400/10 text-amber-100">
+              <LockKeyhole className="h-3.5 w-3.5" /> Login required
+            </span>
+          }
+        />
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard label="Artifacts" value="Drafts" detail="never sent automatically" icon={FileText} tone="text-cyan-300" />
+          <MetricCard label="Approvals" value="Manual" detail="human checkpoint required" icon={UserCheck} tone="text-emerald-300" />
+          <MetricCard label="Audit" value="Required" detail="agent and AI events logged" icon={ClipboardCheck} tone="text-amber-300" />
+        </section>
+        <section className="card max-w-2xl">
+          <SectionHeader title="Start a guarded session" description="Use the demo login to create or reuse a local authenticated user." />
           <a href="/login" className="btn btn-primary mt-4">
             Login / Create Demo User
           </a>
         </section>
+        <SafetyNotice tone="warning">
+          Campaign agents draft only. They do not auto-apply, auto-send outreach, or override deterministic services.
+        </SafetyNotice>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Career Campaigns</h1>
-          <p className="mt-1 text-sm text-zinc-400">LangGraph supervisor, Deep Agent roles, citations, approval checkpoints.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        eyebrow="Campaign cockpit"
+        title="Supervised career campaign"
+        description="LangGraph supervisor, Deep Agent roles, citations, compliance checks, and explicit approval checkpoints."
+        actions={
+          <>
           <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
             <ShieldCheck className="h-3.5 w-3.5" /> No auto-send
           </span>
           <span className={`pill ${statusClass(displayedRun?.status || selectedCampaign?.status || 'created')}`}>
             {displayedRun?.status || selectedCampaign?.status || 'No run'}
           </span>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="card">
-          <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-            <Bot className="h-4 w-4 text-cyan-300" /> Campaign input
-          </div>
+          <SectionHeader title="Campaign input" description="Give the agent a goal and hard constraints it must preserve." />
           <label className="text-sm">
             <span className="mb-2 block text-zinc-400">Goal</span>
             <textarea className="input h-28" value={goal} onChange={(event) => setGoal(event.target.value)} />
@@ -385,9 +395,7 @@ export default function Campaigns() {
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.78fr_1.22fr]">
         <div className="space-y-6">
           <section className="card">
-            <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-              <ListChecks className="h-4 w-4" /> Recent campaigns
-            </div>
+            <SectionHeader title="Recent campaigns" description="Select a prior run to inspect stored state and approvals." />
             <div className="space-y-2">
               {(campaignsQuery.data || []).map((campaign) => (
                 <button
@@ -407,14 +415,12 @@ export default function Campaigns() {
                   <div className="mt-2 text-xs text-zinc-500">{campaign.id}</div>
                 </button>
               ))}
-              {!campaignsQuery.data?.length && <p className="text-sm text-zinc-500">No campaigns yet.</p>}
+              {!campaignsQuery.data?.length && <EmptyState icon={ListChecks} title="No campaigns yet" description="Run a supervised campaign to create a plan, draft artifacts, and approval checkpoints." />}
             </div>
           </section>
 
           <section className="card">
-            <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-              <Sparkles className="h-4 w-4" /> Evidence
-            </div>
+            <SectionHeader title="Evidence" description="Validated source snippets available to this campaign state." />
             <div className="space-y-3">
               {(displayedRun?.evidence || []).map((item) => (
                 <article key={`${item.citation}-${item.source}`} className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
@@ -425,16 +431,14 @@ export default function Campaigns() {
                   <p className="mt-2 line-clamp-4 text-xs text-zinc-500">{item.text}</p>
                 </article>
               ))}
-              {!displayedRun?.evidence?.length && <p className="text-sm text-zinc-500">No evidence loaded for the selected run.</p>}
+              {!displayedRun?.evidence?.length && <EmptyState icon={Sparkles} title="No evidence loaded" description="Run a campaign after uploading source material to populate validated evidence." />}
             </div>
           </section>
         </div>
 
         <div className="space-y-6">
           <section className="card">
-            <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-              <Play className="h-4 w-4" /> Workflow plan
-            </div>
+            <SectionHeader title="Workflow plan" description="Agent-authored plan steps remain suggestions until reviewed." />
             <ol className="space-y-4">
               {(displayedRun?.plan || []).map((step, index) => (
                 <li key={step.id || step.title} className="flex gap-3">
@@ -453,14 +457,16 @@ export default function Campaigns() {
                   </div>
                 </li>
               ))}
-              {!displayedRun?.plan?.length && <p className="text-sm text-zinc-500">Run a campaign to generate a plan.</p>}
+              {!displayedRun?.plan?.length && (
+                <li className="list-none">
+                  <EmptyState icon={Play} title="No plan generated" description="Run a campaign to generate a supervised plan from the current goal and constraints." />
+                </li>
+              )}
             </ol>
           </section>
 
           <section className="card">
-            <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-              <FileText className="h-4 w-4" /> Draft artifacts
-            </div>
+            <SectionHeader title="Draft artifacts" description="Generated content remains review-only and citation-bearing." />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {(displayedRun?.artifacts || []).map((artifact) => (
                 <article key={`${artifact.artifact_type}-${artifact.title}`} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
@@ -495,16 +501,14 @@ export default function Campaigns() {
                   </div>
                 </article>
               ))}
-              {!displayedRun?.artifacts?.length && <p className="text-sm text-zinc-500">No artifacts drafted yet.</p>}
+              {!displayedRun?.artifacts?.length && <EmptyState icon={FileText} title="No artifacts drafted" description="Artifacts will appear here after the campaign has enough grounded source evidence." />}
             </div>
           </section>
         </div>
       </section>
 
       <section className="card">
-        <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-          <ClipboardCheck className="h-4 w-4" /> Human approval checkpoints
-        </div>
+        <SectionHeader title="Human approval checkpoints" description="Approving an artifact does not send it or apply it anywhere." />
         <div className="space-y-4">
           {approvals.map((approval) => (
             <article key={approval.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
@@ -542,7 +546,7 @@ export default function Campaigns() {
               </div>
             </article>
           ))}
-          {!approvals.length && <p className="text-sm text-zinc-500">No approval checkpoints yet.</p>}
+          {!approvals.length && <EmptyState icon={ClipboardCheck} title="No checkpoints yet" description="Approval records are created when a campaign drafts reviewable artifacts." />}
         </div>
       </section>
     </div>

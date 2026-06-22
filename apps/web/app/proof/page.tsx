@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clipboard, FileCheck2, Save, ShieldCheck, Trash2, Trophy } from 'lucide-react';
+import { EmptyState, MetricCard, PageHeader, ProgressBar, SectionHeader } from '@/components/product-ui';
 
 const ASSET_TYPES = ['STAR story', 'Architecture narrative', 'GitHub README', 'LinkedIn post'] as const;
 
@@ -215,23 +216,36 @@ export default function ProofBuilder() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Proof-of-Work Builder</h1>
-          <p className="mt-1 text-sm text-zinc-400">STAR stories, case studies, READMEs, and posts grounded in supplied evidence.</p>
-        </div>
-        <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
-          <ShieldCheck className="h-3.5 w-3.5" /> No fabricated metrics
-        </span>
-      </header>
+      <PageHeader
+        eyebrow="Proof builder"
+        title="Turn evidence into usable proof"
+        description="Draft STAR stories, architecture narratives, READMEs, and posts while keeping missing evidence visible."
+        actions={
+          <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
+            <ShieldCheck className="h-3.5 w-3.5" /> No fabricated metrics
+          </span>
+        }
+      />
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard label="Evidence coverage" value={`${coverage}%`} detail="required fields completed" icon={Trophy} tone="text-emerald-300" />
+        <MetricCard label="Open gaps" value={gaps.length} detail="fields still visible to resolve" icon={FileCheck2} tone={gaps.length ? 'text-amber-300' : 'text-emerald-300'} />
+        <MetricCard label="Saved assets" value={savedAssets.length} detail="stored locally in this browser" icon={Save} tone="text-cyan-300" />
+      </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="card">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="section-title">Evidence form</h2>
+          <SectionHeader
+            title="Evidence form"
+            description="Write the story from known source material first, then decide where it can be reused."
+            action={
             <span className="pill border-zinc-800 bg-zinc-950 text-zinc-300">
               <Trophy className="h-3.5 w-3.5" /> {coverage}% coverage
             </span>
+            }
+          />
+          <div className="mb-5">
+            <ProgressBar value={coverage} tone={coverage < 80 ? 'bg-amber-300' : 'bg-emerald-300'} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -285,9 +299,11 @@ export default function ProofBuilder() {
 
         <div className="space-y-4">
           <section className="card">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="section-title">Draft preview</h2>
-              <div className="flex flex-wrap gap-2">
+            <SectionHeader
+              title="Draft preview"
+              description="Missing evidence is rendered as explicit placeholders instead of being inferred."
+              action={
+                <div className="flex flex-wrap gap-2">
                 <button className="btn btn-secondary px-3 py-1.5" onClick={copyDraft}>
                   <Clipboard className="h-4 w-4" /> {copied ? 'Copied' : 'Copy'}
                 </button>
@@ -295,7 +311,8 @@ export default function ProofBuilder() {
                   <Save className="h-4 w-4" /> Save
                 </button>
               </div>
-            </div>
+              }
+            />
             <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm leading-relaxed text-zinc-200">
               {draftText}
             </pre>
@@ -303,7 +320,7 @@ export default function ProofBuilder() {
           </section>
 
           <section className="card">
-            <h2 className="section-title">Evidence gaps</h2>
+            <SectionHeader title="Evidence gaps" description="Resolve these before treating a draft as ready." />
             {gaps.length ? (
               <ul className="mt-4 space-y-2 text-sm text-amber-300">
                 {gaps.map((gap) => (
@@ -313,19 +330,20 @@ export default function ProofBuilder() {
                 ))}
               </ul>
             ) : (
-              <div className="mt-4 flex items-center gap-2 text-sm text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" /> Core evidence fields are present.
-              </div>
+              <EmptyState icon={CheckCircle2} title="Core evidence is present" description="The draft still needs human review, but the required source fields are filled." />
             )}
           </section>
         </div>
       </section>
 
       <section className="card">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="section-title">Local proof board</h2>
+        <SectionHeader
+          title="Local proof board"
+          description="Saved proof assets remain browser-local in this demo slice."
+          action={
           <span className="text-xs text-zinc-500">{savedAssets.length} saved</span>
-        </div>
+          }
+        />
         {savedAssets.length ? (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             {savedAssets.map((asset) => (
@@ -347,7 +365,7 @@ export default function ProofBuilder() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-zinc-400">Saved proof assets stay in this browser for the demo slice.</p>
+          <EmptyState icon={Trophy} title="No saved proof assets yet" description="Save the current draft to start building a reusable proof library." />
         )}
       </section>
     </div>

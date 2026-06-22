@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Bot, CheckCircle2, Cpu, PlugZap, RefreshCcw, Save, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { EmptyState, MetricCard, PageHeader, ProgressBar, SectionHeader, SafetyNotice } from '@/components/product-ui';
 
 type ProviderStatus = {
   provider: string;
@@ -180,49 +181,45 @@ export default function AIProviders() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">AI Provider Settings</h1>
-          <p className="mt-1 text-sm text-zinc-400">Local Ollama first, external providers opt-in only.</p>
-        </div>
-        <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
-          <ShieldCheck className="h-3.5 w-3.5" /> Redaction required
-        </span>
-      </header>
+      <PageHeader
+        eyebrow="AI settings"
+        title="Choose local models without weakening privacy"
+        description="Ollama remains the default path. External providers require explicit consent, redaction, and audit logging."
+        actions={
+          <span className="pill border-emerald-900 bg-emerald-950 text-emerald-300">
+            <ShieldCheck className="h-3.5 w-3.5" /> Redaction required
+          </span>
+        }
+      />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="card">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <Cpu className="h-4 w-4 text-cyan-300" /> Provider
-          </div>
-          <div className="metric mt-3 text-lg">{status?.provider || '...'}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-zinc-400">Chat model</div>
-          <div className="mt-3 break-words text-lg font-semibold text-white">{status?.chat_model || '...'}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-zinc-400">Installed models</div>
-          <div className="metric mt-3">{modelInfo?.installed_models?.length || 0}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-zinc-400">External AI</div>
-          <div className={`mt-3 text-lg font-semibold ${status?.external_enabled ? 'text-amber-300' : 'text-emerald-300'}`}>
-            {status?.external_enabled ? 'Enabled' : 'Disabled'}
-          </div>
-        </div>
+        <MetricCard label="Provider" value={status?.provider || '...'} detail="single AI gateway path" icon={Cpu} tone="text-cyan-300" />
+        <MetricCard label="Chat model" value={status?.chat_model || '...'} detail="selected local tag" icon={Bot} />
+        <MetricCard label="Installed models" value={modelInfo?.installed_models?.length || 0} detail="reported by Ollama" icon={PlugZap} tone="text-violet-300" />
+        <MetricCard
+          label="External AI"
+          value={status?.external_enabled ? 'Enabled' : 'Disabled'}
+          detail="opt-in only"
+          icon={ShieldCheck}
+          tone={status?.external_enabled ? 'text-amber-300' : 'text-emerald-300'}
+        />
       </section>
+
+      <SafetyNotice tone={status?.external_enabled ? 'warning' : 'success'}>
+        External AI is {status?.external_enabled ? 'enabled' : 'disabled'}. Local model selection is restricted to localhost-style Ollama endpoints.
+      </SafetyNotice>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="card">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <Bot className="h-4 w-4" /> Local model
-            </div>
-            <button className="btn btn-secondary px-3 py-1.5" onClick={load} disabled={loading}>
+          <SectionHeader
+            title="Local model"
+            description="Select an installed tag, use a suggested tag, or enter a custom pulled Ollama model."
+            action={
+              <button className="btn btn-secondary px-3 py-1.5" onClick={load} disabled={loading}>
               <RefreshCcw className="h-4 w-4" /> Refresh
-            </button>
-          </div>
+              </button>
+            }
+          />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="text-sm">
@@ -290,7 +287,7 @@ export default function AIProviders() {
 
         <div className="space-y-4">
           <section className="card">
-            <div className="mb-4 text-sm text-zinc-400">Installed local tags</div>
+            <SectionHeader title="Installed local tags" description="Click a tag to stage it for selection." />
             {modelInfo?.installed_models?.length ? (
               <div className="flex flex-wrap gap-2">
                 {modelInfo.installed_models.map((model) => (
@@ -307,12 +304,12 @@ export default function AIProviders() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-zinc-400">No tags reported by Ollama yet.</p>
+              <EmptyState icon={Bot} title="No local tags reported" description="Start Ollama and pull a model tag, then refresh this page." />
             )}
           </section>
 
           <section className="card">
-            <div className="mb-4 text-sm text-zinc-400">Suggested local tags</div>
+            <SectionHeader title="Suggested local tags" description="These are examples only; use any local tag you have pulled." />
             <div className="flex flex-wrap gap-2">
               {(modelInfo?.suggested_models || []).map((model) => (
                 <button
@@ -330,7 +327,7 @@ export default function AIProviders() {
           </section>
 
           <section className="card">
-            <div className="mb-2 text-sm text-zinc-400">Connection test</div>
+            <SectionHeader title="Connection test" description="Verify the active local provider path before relying on generation." />
             {testResult ? (
               <pre className="overflow-auto rounded-lg bg-black p-3 text-xs text-zinc-300">{JSON.stringify(testResult, null, 2)}</pre>
             ) : (
@@ -341,8 +338,8 @@ export default function AIProviders() {
       </section>
 
       <section className="card">
-        <div className="font-medium mb-2">External AI Consent</div>
-        <div className="text-xs text-amber-400 mb-3">External AI stays disabled by default. Enabling it requires consent, redaction, and audit logging.</div>
+        <SectionHeader title="External AI consent" description="External AI stays disabled by default. Enabling it requires consent, redaction, and audit logging." />
+        <ProgressBar value={enable ? 66 : 33} tone={enable ? 'bg-amber-300' : 'bg-emerald-300'} label="consent gate readiness" />
         <label className="flex items-center gap-2 text-sm mb-3">
           <input type="checkbox" checked={enable} onChange={(event) => setEnable(event.target.checked)} /> Enable external providers after consent
         </label>
