@@ -14,6 +14,9 @@ class JDAnalyzeRequest(BaseModel):
 
 class MatchResult(BaseModel):
     match_score: float  # 0-100 evidence based
+    ai_confidence: float  # 0-1 deterministic support score
+    groundedness_score: float  # 0-1 citation/evidence support score
+    quality: dict
     required_skills: List[str]
     missing_skills: List[str]
     responsibilities: List[str]
@@ -103,4 +106,40 @@ Be evidence-based only from the provided text. No fabrication."""
             "This is planning guidance only. Do not fabricate experience. Review and edit all drafts. No guarantee of interview or offer."
         ],
     }
+    result["quality"] = _quality_summary(result, resume_snippet=req.resume_text)
+    result["ai_confidence"] = result["quality"]["ai_confidence"]
+    result["groundedness_score"] = result["quality"]["groundedness_score"]
     return result
+
+
+def _quality_summary(result: dict, resume_snippet: Optional[str]) -> dict:
+    citation_count = len(result.get("citations") or [])
+    required_count = len(result.get("required_skills") or [])
+    missing_count = len(result.get("missing_skills") or [])
+    has_user_resume = bool(resume_snippet and resume_snippet.strip())
+
+    groundedness = 0.35
+    groundedness += min(0.35, citation_count * 0.08)
+    if has_user_resume:
+        groundedness += 0.15
+    if required_count:
+        groundedness += 0.08
+    groundedness -= min(0.2, missing_count * 0.03)
+    groundedness = max(0.05, min(0.95, round(groundedness, 2)))
+
+    confidence = 0.35 + groundedness * 0.45
+    if has_user_resume:
+        confidence += 0.1
+    confidence = max(0.05, min(0.9, round(confidence, 2)))
+    return {
+        "ai_confidence": confidence,
+        "groundedness_score": groundedness,
+        "citation_count": citation_count,
+        "required_skill_count": required_count,
+        "missing_skill_count": missing_count,
+        "user_resume_supplied": has_user_resume,
+        "scoring_note": (
+            "Deterministic support score from citations, JD extraction, "
+            "and whether user resume evidence was supplied."
+        ),
+    }

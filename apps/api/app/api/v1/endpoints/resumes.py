@@ -10,6 +10,7 @@ from app.services.resume import (
     create_resume_version,
     list_user_resumes,
 )
+from app.core.security import get_current_user
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ async def upload_resume(
     request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user_id: str = "demo-user",  # TODO: real auth/JWT -> current_user.id
+    current_user: dict = Depends(get_current_user),
 ):
     if not file.filename:
         raise HTTPException(400, "No file")
@@ -51,7 +52,7 @@ async def upload_resume(
             db=db,
             file_bytes=content,
             filename=file.filename,
-            user_id=user_id,
+            user_id=current_user["id"],
             request_id=rid,
             content_type=file.content_type,
         )
@@ -74,7 +75,7 @@ async def create_version(
     request: Request,
     target_role: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    user_id: str = "demo-user",
+    current_user: dict = Depends(get_current_user),
 ):
     rid = getattr(request.state, "request_id", None)
     try:
@@ -82,7 +83,7 @@ async def create_version(
             db=db,
             resume_id=resume_id,
             target_role=target_role,
-            user_id=user_id,
+            user_id=current_user["id"],
             request_id=rid,
         )
         return v
@@ -93,6 +94,8 @@ async def create_version(
 
 
 @router.get("/", response_model=List[ResumeOut])
-async def list_resumes(db: AsyncSession = Depends(get_db), user_id: str = "demo-user"):
-    items = await list_user_resumes(db, user_id)
+async def list_resumes(
+    db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)
+):
+    items = await list_user_resumes(db, current_user["id"])
     return items

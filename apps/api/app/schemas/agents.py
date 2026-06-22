@@ -33,6 +33,9 @@ class CampaignRunOut(BaseModel):
     status: str
     thread_id: str
     checkpoint_backend: str
+    ai_confidence: float = 0.0
+    groundedness_score: float = 0.0
+    quality: dict[str, Any] = Field(default_factory=dict)
     plan: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
     approvals: list[dict[str, Any]] = Field(default_factory=list)
@@ -59,4 +62,3 @@ class ApprovalOut(BaseModel):
 class ApprovalDecisionRequest(BaseModel):
     status: Literal["approved", "rejected"]
     notes: str | None = Field(default=None, max_length=2000)
-

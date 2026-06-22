@@ -34,6 +34,9 @@ class AgentArtifact(TypedDict):
     title: str
     content: dict[str, Any]
     citations: list[str]
+    ai_confidence: float
+    groundedness_score: float
+    quality_signals: dict[str, Any]
     requires_human_approval: bool
 
 
@@ -57,4 +60,3 @@ class CampaignAgentState(TypedDict):
     subagent_reports: dict[str, Any]
     checkpoint_backend: NotRequired[str]
     langsmith: NotRequired[dict[str, Any]]
-

@@ -253,6 +253,7 @@ class CampaignToolbelt:
         content = parsed.get("content") if isinstance(parsed.get("content"), dict) else {}
         if not content:
             content = _fallback_artifact_content(payload)
+        quality = _quality_scores(content, citations, payload.evidence)
 
         artifact: AgentArtifact = {
             "artifact_type": payload.artifact_type,
@@ -263,6 +264,9 @@ class CampaignToolbelt:
                 "planning_guidance_only": True,
             },
             "citations": citations,
+            "ai_confidence": quality["ai_confidence"],
+            "groundedness_score": quality["groundedness_score"],
+            "quality_signals": quality,
             "requires_human_approval": True,
         }
         output = DraftArtifactOutput(artifact=artifact, warnings=warnings)
@@ -501,6 +505,47 @@ def _artifact_citations(parsed: dict[str, Any], evidence: list[EvidenceItem]) ->
     return [item["citation"] for item in evidence[:4]]
 
 
+def _quality_scores(
+    content: dict[str, Any], citations: list[str], evidence: list[EvidenceItem]
+) -> dict[str, Any]:
+    evidence_count = len(evidence)
+    citation_count = len(citations)
+    missing_count = _missing_evidence_count(content)
+    groundedness = 0.25
+    if evidence_count:
+        groundedness += 0.35
+    groundedness += min(0.3, citation_count * 0.08)
+    groundedness -= min(0.25, missing_count * 0.08)
+    groundedness = max(0.05, min(0.95, round(groundedness, 2)))
+
+    confidence = 0.35 + (groundedness * 0.45)
+    if evidence_count >= 2:
+        confidence += 0.1
+    if missing_count:
+        confidence -= min(0.2, missing_count * 0.05)
+    confidence = max(0.05, min(0.9, round(confidence, 2)))
+    return {
+        "ai_confidence": confidence,
+        "groundedness_score": groundedness,
+        "evidence_count": evidence_count,
+        "citation_count": citation_count,
+        "missing_evidence_count": missing_count,
+        "scoring_note": (
+            "Deterministic support score from citations, evidence coverage, "
+            "missing-evidence flags, and compliance gates."
+        ),
+    }
+
+
+def _missing_evidence_count(content: dict[str, Any]) -> int:
+    raw = content.get("missing_evidence")
+    if isinstance(raw, list):
+        return len([item for item in raw if str(item).strip()])
+    if isinstance(raw, str) and raw.strip():
+        return 1
+    return 0
+
+
 def _looks_like_prompt_injection(text: str) -> bool:
     lowered = text.lower()
     return any(
@@ -514,4 +559,3 @@ def _looks_like_prompt_injection(text: str) -> bool:
             "bypass compliance",
         )
     )
-

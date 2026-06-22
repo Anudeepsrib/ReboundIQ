@@ -25,3 +25,6 @@ ReboundIQ's backend exposes a supervised CareerCampaignAgent under `/api/v1/agen
 
 Set `LANGSMITH_TRACING=true`, `LANGSMITH_PROJECT`, and `LANGSMITH_API_KEY` to trace LangGraph/LangChain runs in LangSmith. `LANGGRAPH_CHECKPOINT_BACKEND=postgres` enables the async Postgres checkpointer; local development defaults to memory checkpoints while persisting final state in `agent_campaigns.metadata_json`.
 
+## Confidence And Groundedness
+
+Campaign runs and artifacts return `ai_confidence`, `groundedness_score`, and `quality` fields. These are deterministic support scores based on evidence count, citation coverage, missing-evidence flags, and ComplianceGuard status. They are not guarantees of correctness, hiring outcomes, or factual completeness.

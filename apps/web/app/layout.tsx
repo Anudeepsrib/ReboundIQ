@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { Providers } from "./providers";
 import {
   BarChart3,
   Bot,
@@ -61,9 +62,11 @@ export default function RootLayout({
               <div className="text-xs text-zinc-500">Demo • Local Ollama</div>
             </div>
           </nav>
-          <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
-            {children}
-          </main>
+          <Providers>
+            <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
+              {children}
+            </main>
+          </Providers>
           <footer className="text-center text-[10px] text-zinc-600 py-4 border-t border-zinc-900">
             Planning guidance only. Not legal, financial, immigration, or tax advice. All outputs must be reviewed and edited by you. • Local AI default • Data stays yours
           </footer>

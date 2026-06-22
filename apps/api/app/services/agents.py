@@ -244,11 +244,15 @@ async def decide_approval(
 def _run_response(
     state: CampaignAgentState, deepagents: dict[str, Any]
 ) -> dict[str, Any]:
+    quality = _campaign_quality(state)
     return {
         "campaign_id": state["campaign_id"],
         "status": state.get("status", "failed"),
         "thread_id": state["thread_id"],
         "checkpoint_backend": state.get("checkpoint_backend", "memory"),
+        "ai_confidence": quality["ai_confidence"],
+        "groundedness_score": quality["groundedness_score"],
+        "quality": quality,
         "plan": state.get("plan", []),
         "artifacts": state.get("artifacts", []),
         "approvals": state.get("approvals", []),
@@ -263,9 +267,13 @@ def _run_response(
 
 
 def _metadata_state(state: CampaignAgentState) -> dict[str, Any]:
+    quality = _campaign_quality(state)
     return {
         "status": state.get("status"),
         "thread_id": state.get("thread_id"),
+        "ai_confidence": quality["ai_confidence"],
+        "groundedness_score": quality["groundedness_score"],
+        "quality": quality,
         "plan": state.get("plan", []),
         "artifacts": state.get("artifacts", []),
         "approvals": state.get("approvals", []),
@@ -277,3 +285,41 @@ def _metadata_state(state: CampaignAgentState) -> dict[str, Any]:
         "subagent_reports": state.get("subagent_reports", {}),
     }
 
+
+def _campaign_quality(state: CampaignAgentState) -> dict[str, Any]:
+    artifacts = state.get("artifacts", [])
+    evidence = state.get("evidence", [])
+    compliance = state.get("compliance", {})
+    citation_count = sum(len(a.get("citations", [])) for a in artifacts)
+    missing_count = sum(
+        int(a.get("quality_signals", {}).get("missing_evidence_count", 0))
+        for a in artifacts
+    )
+    if artifacts:
+        avg_confidence = sum(float(a.get("ai_confidence", 0.0)) for a in artifacts) / len(
+            artifacts
+        )
+        avg_groundedness = sum(
+            float(a.get("groundedness_score", 0.0)) for a in artifacts
+        ) / len(artifacts)
+    else:
+        avg_confidence = 0.0
+        avg_groundedness = 0.0
+
+    if not compliance.get("passed", False):
+        avg_confidence = min(avg_confidence, 0.35)
+        avg_groundedness = min(avg_groundedness, 0.45)
+
+    return {
+        "ai_confidence": round(avg_confidence, 2),
+        "groundedness_score": round(avg_groundedness, 2),
+        "evidence_count": len(evidence),
+        "citation_count": citation_count,
+        "missing_evidence_count": missing_count,
+        "compliance_passed": bool(compliance.get("passed", False)),
+        "approval_required": True,
+        "scoring_note": (
+            "Confidence and groundedness are deterministic support scores, "
+            "not guarantees of outcome or factual completeness."
+        ),
+    }
