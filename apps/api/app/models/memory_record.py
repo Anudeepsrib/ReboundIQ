@@ -12,9 +12,8 @@ import uuid
 from .user import Base
 from pgvector.sqlalchemy import Vector
 
-# Fixed dim for vector column/index. 1536 covers OpenAI text-embedding-3-small and most;
-# nomic-embed-text (768) will be right-padded with zeros on store (recall normalizes or accepts).
-EMBED_DIM: int = 1536
+# Fixed dim for the default local embedding model and consolidated migration.
+EMBED_DIM: int = 768
 
 
 class MemoryRecord(Base):

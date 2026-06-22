@@ -16,11 +16,12 @@ This slice expands the web app from the initial Resume/JD vertical into a broade
 
 ## Implementation Notes
 
-- These features are client-side and deterministic.
+- These features are deterministic.
 - No external AI calls were added.
 - No backend provider calls were added outside the existing AI Gateway paths.
-- No database schema changes or Alembic migrations were required.
-- Browser-local storage is used only for demo state on application, proof, and interview pages.
+- Backend persistence now covers runway snapshots, application records, proof assets, and interview sessions through authenticated CRUD APIs.
+- Alembic migration `0004_workflow_records.py` adds these product workflow tables with `user_id` isolation, soft delete fields, and focused indexes.
+- Browser-local state remains useful as an offline fallback in the web app, but the backend gap for product workflow persistence is closed.
 - Campaigns remain supervised workflow UI only; they do not run autonomous agents, auto-apply, auto-send, or auto-edit user artifacts.
 - Local Ollama chat and embedding model choices can be changed at runtime for the API process.
 - Suggested local model tags include Gemma-style and other Ollama models, and users can type any pulled local tag.
@@ -35,8 +36,7 @@ This slice expands the web app from the initial Resume/JD vertical into a broade
 
 ## Follow-Up Work
 
-- Replace browser-local state with authenticated API-backed CRUD using user_id isolation.
-- Add Alembic migrations for applications, proof assets, interview attempts, runway snapshots, and approval requests.
+- Wire the web pages from browser-local state to the authenticated workflow APIs.
 - Add eval cases before AI generation is introduced for proof, interview, outreach, or campaign artifacts.
 - Wire future generation only through AIGateway, RedactionService, ComplianceGuardAgent, audit logs, citations, and human approval.
 - Persist per-user local model preferences through an authenticated settings API instead of process-local runtime settings.

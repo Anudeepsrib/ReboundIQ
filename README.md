@@ -1,139 +1,203 @@
-# ReboundIQ — Layoff-to-Offer AI Copilot
+# ReboundIQ
 
-> **From layoff shock to structured execution: runway, resume, proof, applications, interviews, and offer readiness.**
+**A local-first layoff-to-offer operating system for technical professionals.**
 
-ReboundIQ is a **production-grade, local-first, privacy-first AI career recovery operating system** built for laid-off or transitioning technical professionals (software/AI/data engineers, PMs, designers, analysts, technical leads).
+ReboundIQ helps laid-off or transitioning engineers, AI/data practitioners, PMs,
+designers, analysts, and technical leads turn career recovery into a structured
+workflow: runway planning, resume evidence, job targeting, proof-of-work,
+applications, interview preparation, and supervised campaign planning.
 
-It supports H-1B / STEM OPT / sponsorship-sensitive candidates and senior professionals who need rigorous, evidence-based execution — not another job board or generic resume builder.
+The product is built around a simple rule: personal career data stays private by
+default. Local Ollama AI is the default path, external AI is disabled until the
+user opts in, and deterministic backend services remain authoritative.
 
-## Core Philosophy
-- **Local AI by default** (Ollama / vLLM) — fully functional with zero paid API keys.
-- **Provider-neutral AI Gateway** — switch seamlessly between local and any LiteLLM-compatible provider (OpenAI, Anthropic, Gemini, Groq, Together, Mistral, Azure, Bedrock, etc.).
-- **External AI is opt-in only** — disabled by default + explicit consent + mandatory PII redaction + full audit.
-- **Deterministic services + Deep Agent orchestration** (LangGraph) — agents coordinate; they never replace verified logic or fabricate data.
-- **Hindsight Memory** — optional long-term learning layer that improves plans from real outcomes (callbacks, replies, interviews, rejections) while enforcing strict safety.
-- **Zero tolerance for hallucination on personal facts** — every claim is grounded or explicitly states data is missing. Compliance Guard blocks unsafe output.
-- **No legal / immigration / financial / tax / medical advice** — everything is framed as planning guidance and risk signals.
+## Product Promise
 
-## Key Features (Full Spec Coverage)
-1. **Layoff Recovery Dashboard** — 30/60/90-day plans, weekly goals, multi-dimensional risk indicators (runway, resume, portfolio, interview, visa sensitivity, etc.).
-2. **Runway Planner** — expense/savings/severance modeling with conservative/moderate/aggressive scenarios + action checklists (with strong disclaimers).
-3. **Resume Intelligence** — PDF/DOCX/TXT upload, structured parsing, ATS scoring, multiple role-targeted versions (AI Engineer, Backend, Data, Technical Lead, etc.). Never overwrites originals. Full version history.
-4. **Job Description Analyzer** — deep extraction (skills, seniority, stacks, sponsorship clues, red flags) + evidence-based match score against your profile + rewrite strategy, recruiter message, cover letter drafts + citations.
-5. **Proof-of-Work Builder** — STAR stories, case studies, architecture narratives, GitHub READMEs, LinkedIn posts — always cited to your real experience. No fabricated metrics or employers.
-6. **Application Tracker** — full pipeline (Saved → Applied → Recruiter → Tech → System Design → Manager → Final → Offer/Rejected/Withdrawn). Scorecards, follow-up suggestions, JD snapshots, resume version linkage. No auto-apply.
-7. **Networking & Outreach Copilot** — personalized messages (recruiters, hiring managers, referrals, alumni) with tone options. Manual send only. Tracking + learning from outcomes.
-8. **Interview Prep Engine** — question banks (behavioral, system design, coding, AI/RAG, cloud, etc.) generated from your resume + JD + weak areas. Mock interview mode with evaluation + improvement tracking. Cheat sheets.
-9. **Offer Readiness** — comp tracking (base/bonus/equity/benefits/immigration support), negotiation points, constraint comparison (disclaimers everywhere).
-10. **Visa-Sensitive Career Mode** — optional encrypted fields (H-1B, OPT, GC stage, grace periods, sponsorship needs). Planning guidance only. Attorney-consult flags. Consent required.
-11. **Private RAG Knowledge Base** — upload any docs (resumes, JDs, offers, notes, GitHub READMEs). pgvector + citations. Grounded generation only.
-12. **Deep Agent Layer** — CareerCampaignAgent supervisor + 7 specialized subagents (ResumeDeep, JDDeep, ProofDeep, OutreachDeep, InterviewDeep, PlannerDeep, ComplianceGuardAgent). Typed tools, state, checkpoints, human approval for artifacts.
-13. **Hindsight Memory Layer** — Postgres+pgvector (default) or optional external adapter. Categories, sensitivity levels, consent, reflection after real events. Memory is evidence, never overrides safety rules.
-14. **Safety & Compliance** — Compliance Guard on every path. Redaction before external. No fabrication, no spam, full audit, data export + deletion.
-15. **Observability & Evals** — structured logs, request IDs, AI usage/cost/latency tracking, golden test cases, hallucination/groundedness/citation/safety checks, `make eval`.
-16. **Production Security** — JWT, RBAC-ready isolation, encrypted sensitive fields, rate limiting, secure uploads, consent records.
+- **Local-first AI**: Ollama is the default provider. The app works without paid
+  model APIs.
+- **Privacy-first workflows**: every user-owned record is scoped by
+  authenticated `user_id`; sensitive AI and memory paths require consent.
+- **Evidence-based career artifacts**: resumes, proof stories, and campaign
+  artifacts must be grounded in user-provided facts and citations.
+- **Human control**: ReboundIQ never auto-applies, auto-sends outreach, or
+  silently edits user-facing artifacts.
+- **Planning guidance only**: runway, sponsorship, offer, and risk surfaces are
+  guidance and risk signals, not legal, immigration, financial, tax, medical, or
+  hiring advice.
 
-## Quick Start (Recommended: Docker)
+## Available Now
+
+- **Career dashboard** for the layoff-to-offer operating loop.
+- **Runway planner** with persisted snapshots for expenses, savings, severance,
+  unemployment assumptions, scenarios, and action items.
+- **Application tracker** with authenticated records for company, role, stage,
+  JD snapshot, next step, fit score, sponsorship signal, and resume version link.
+- **Proof-of-work builder** with persisted STAR stories, case studies,
+  architecture notes, GitHub README drafts, LinkedIn posts, citations, and
+  application links.
+- **Interview prep** with persisted sessions, focus areas, question logs,
+  feedback, scores, scheduling, and application links.
+- **Resume upload and parsing** with immutable original storage, parsed data,
+  versions, private document chunks, and local embedding support.
+- **JD analysis** through the AI Gateway with request IDs, user isolation, and
+  groundedness/confidence signals.
+- **AI provider settings** for local Ollama status, installed model discovery,
+  suggested local tags, and runtime local model selection.
+- **Supervised agent backend** for CareerCampaignAgent campaigns, typed tools,
+  ComplianceGuard checks, tool-call audit logs, and human approval checkpoints.
+- **Golden evals** for safety, groundedness, redaction, schema, tool fidelity,
+  and campaign compliance behavior.
+
+## Architecture
+
+| Layer | Stack | Notes |
+| --- | --- | --- |
+| Web | Next.js 15 App Router, TypeScript, Tailwind | Product workflows live under `apps/web/app` with local-first fallbacks. |
+| API | FastAPI, Pydantic v2, SQLAlchemy 2.0 async | Business logic lives in services; routes stay thin and authenticated. |
+| Data | Postgres, pgvector, Alembic | Workflow tables, resumes, memory, audit, agents, approvals, and document chunks. |
+| AI | `AIGateway`, Ollama, optional LiteLLM-compatible external providers | No business code calls providers directly. External AI requires consent and redaction. |
+| Agents | LangGraph / Deep Agents patterns | Agents orchestrate deterministic typed tools and approval checkpoints. |
+| Storage | `StorageService` protocol | Originals are preserved; user-isolated keys are required. |
+| Evals | `make eval`, JSONL golden cases | Safety, citation, schema, redaction, groundedness, and compliance checks. |
+
+## API Surface
+
+Core authenticated backend routes include:
+
+- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+  `GET /api/v1/auth/me`
+- `POST /api/v1/resumes/upload`,
+  `POST /api/v1/resumes/{resume_id}/versions`, `GET /api/v1/resumes`
+- `POST /api/v1/jobs/analyze`
+- `GET /api/v1/ai/status`, `GET /api/v1/ai/local-models`,
+  `POST /api/v1/ai/local-models/select`
+- `GET|POST /api/v1/runway/snapshots`,
+  `PATCH|DELETE /api/v1/runway/snapshots/{snapshot_id}`
+- `GET|POST /api/v1/applications`,
+  `PATCH|DELETE /api/v1/applications/{application_id}`
+- `GET|POST /api/v1/proof/assets`,
+  `PATCH|DELETE /api/v1/proof/assets/{asset_id}`
+- `GET|POST /api/v1/interviews/sessions`,
+  `PATCH|DELETE /api/v1/interviews/sessions/{session_id}`
+- `POST /api/v1/agents/campaigns`,
+  `POST /api/v1/agents/campaigns/{campaign_id}/run`,
+  `GET /api/v1/agents/approvals`,
+  `POST /api/v1/agents/approvals/{approval_id}/decide`
+
+All workflow CRUD paths are deterministic and user-isolated. They do not invoke
+AI, send messages, apply jobs, or generate user-facing artifacts.
+
+## Quick Start
 
 ```powershell
-# Windows (pwsh) or any OS with Docker + Compose
 git clone <your-fork-or-repo> ReboundIQ
 cd ReboundIQ
 
-# Copy example env
 Copy-Item .env.example .env
 
-# Start full stack (Postgres + pgvector, Redis, Ollama, MinIO, API, Celery worker, Next.js web)
+# Full local stack: Postgres + pgvector, Redis, Ollama, MinIO, API, web
 make dev
-# or
-docker compose up --build -d
 
-# First boot: Ollama compose entrypoint auto-pulls defaults (llama3.2:1b + nomic-embed-text, ~1-2 GB). Can take 5-15 min on Windows/WSL2/CPU.
-# Healthcheck waits for model in /api/tags; api /ready waits for healthy ollama.
-# Wait for health:
-docker compose ps
-
-# (If needed) List models or re-pull:
-# docker compose exec ollama ollama list
-# docker compose exec ollama ollama pull llama3.2:1b
-# Test conn from API: curl http://localhost:8000/api/v1/ai/test-conn
-
-# Seed synthetic demo data (no real PII)
-make seed
-
-# Open
-# Web:   http://localhost:3000
-# API:   http://localhost:8000/docs
-# MinIO: http://localhost:9001  (user: reboundiq / pass: reboundiqminio123)
-```
-
-See `LOCAL_AI_SETUP.md` for Windows/WSL2 specifics, model recommendations, and non-Docker dev setup.
-
-## Makefile (One-Command Workflow)
-```bash
-make dev        # full local stack
-make backend    # uvicorn only
-make frontend   # next dev only
+# Apply schema and seed synthetic demo data
 make migrate
 make seed
-make test
-make lint
-make eval       # AI evaluation suite
-make down
 ```
 
-## Project Structure (Monorepo)
+Open:
+
+- Web app: http://localhost:3000
+- API docs: http://localhost:8000/docs
+- API health: http://localhost:8000/health
+- MinIO console: http://localhost:9001
+
+First Ollama boot can take several minutes while local models are pulled. See
+[docs/LOCAL_AI_SETUP.md](docs/LOCAL_AI_SETUP.md) for Windows, WSL2, Docker
+Desktop, and CPU model notes.
+
+## Local Development
+
+```bash
+make backend    # FastAPI only
+make frontend   # Next.js only
+make migrate    # Alembic upgrade head
+make test       # Backend pytest + frontend check target
+make lint       # Ruff, mypy, eslint, prettier
+make eval       # Golden safety/eval suite
+make down       # Stop and remove local compose volumes
 ```
-reboundiq/
+
+Useful direct commands:
+
+```bash
+cd apps/api && python -m pytest tests -q
+cd apps/api && alembic heads
+cd apps/web && npm run build
+```
+
+## Safety Model
+
+ReboundIQ treats career AI as a high-trust surface:
+
+- external AI is off by default;
+- redaction is required before any external call;
+- all AI requests flow through `AIGateway`;
+- ComplianceGuard runs on generation paths;
+- user-facing artifacts require human approval checkpoints;
+- personal claims require citations or explicit missing-data language;
+- memory is evidence only and never overrides current user input or safety rules;
+- every service query must filter by authenticated `user_id`;
+- AI requests, agent tool calls, memory events, and actions are auditable.
+
+See [AGENTS.md](AGENTS.md) and [docs/AGENT_BACKEND.md](docs/AGENT_BACKEND.md)
+for the implementation rules that coding agents and contributors must preserve.
+
+## Repository Map
+
+```text
+.
 ├── apps/
-│   ├── api/                 # FastAPI (Python 3.11+)
+│   ├── api/                 # FastAPI backend
 │   │   ├── app/
-│   │   │   ├── ai/          # AIGateway + providers (ollama, litellm)
-│   │   │   ├── agents/      # LangGraph Deep Agents + ComplianceGuard
-│   │   │   ├── rag/         # Document chunking + pgvector
-│   │   │   ├── models/      # SQLAlchemy 2.0 (users, resumes, campaigns, memory_records, ...)
-│   │   │   ├── services/    # Business logic (never calls providers directly)
-│   │   │   └── evals/       # Golden tests + runner
-│   │   └── tests/
-│   └── web/                 # Next.js 15 + TypeScript + shadcn/ui
-│       ├── app/             # (dashboard, resume, jobs, campaigns, settings, ...)
-│       └── components/
-├── packages/shared/
-├── infra/
-│   ├── docker/
-│   ├── k8s/
-│   └── terraform/ (optional)
-├── docs/                    # ARCHITECTURE.md, SECURITY.md, AI_PROVIDER_GUIDE.md, ...
-├── .design/                 # (gitignored) — design docs + PR plan from AI architect loop
+│   │   │   ├── ai/          # AIGateway, redaction, memory
+│   │   │   ├── agents/      # supervised campaign orchestration
+│   │   │   ├── api/v1/      # HTTP routes
+│   │   │   ├── models/      # SQLAlchemy models
+│   │   │   ├── schemas/     # Pydantic API contracts
+│   │   │   └── services/    # deterministic business logic
+│   │   ├── alembic/         # migrations
+│   │   └── tests/           # backend tests
+│   └── web/                 # Next.js frontend
+├── docs/                    # product, setup, agent, and feature docs
+├── infra/                   # Docker/Postgres initialization
+├── tests/evals/goldens/     # safety and groundedness eval fixtures
 ├── docker-compose.yml
-├── docker-compose.prod.yml
-├── .pre-commit-config.yaml
-├── .dockerignore (in apps/api/, apps/web/ for build contexts)
 ├── Makefile
-└── README.md
+└── AGENTS.md
 ```
-
-
-## Important Disclaimers
-**This software provides planning guidance and risk signals only.**  
-It is not legal advice, immigration advice, financial advice, tax advice, or medical advice.  
-All AI-generated content must be reviewed and edited by a human. Never use unedited output in real applications, messages, or official documents.
 
 ## Documentation
-- **[User Guide](docs/USER_GUIDE.md)** — step-by-step how to use the application, workflows, safety notes, and Mermaid diagrams for the main flows (resume processing, AI lifecycle, application pipeline, agent campaigns, architecture).
-- `docs/LOCAL_AI_SETUP.md` (includes Windows/WSL2, Docker Desktop, Ollama CPU notes)
-- Other guides (AI_PROVIDER_GUIDE.md, SECURITY.md, PRIVACY.md, EVALUATION.md, DEPLOYMENT.md, API.md) added in subsequent PRs per the plan in design.
-- Full design + PR plan: `.design/design-doc-85a840fd.md` (internal, gitignored)
-- See also: `.pre-commit-config.yaml`, `.dockerignore` (per-app), AGENTS.md, Makefile targets.
+
+- [User Guide](docs/USER_GUIDE.md)
+- [Local AI Setup](docs/LOCAL_AI_SETUP.md)
+- [Agent Backend](docs/AGENT_BACKEND.md)
+- [Feature Slice Notes](docs/FEATURE_SLICE_2026_06_18.md)
+- [Agent Guidelines](AGENTS.md)
+
+## Roadmap
+
+- Wire the web workflow pages to the authenticated workflow APIs.
+- Add authenticated user export and hard-delete flows across all product tables.
+- Persist per-user local AI preferences instead of process-local runtime
+  selection.
+- Expand proof, interview, outreach, and campaign generation only through
+  `AIGateway`, redaction, ComplianceGuard, citations, eval cases, and human
+  approval.
+- Add production deployment hardening: rate limits, RLS policies, encryption for
+  optional sensitive fields, backups, and operational dashboards.
 
 ## License
-MIT — see LICENSE.
 
-**Review everything. Ground your own career decisions in reality, not AI output.**
+MIT. See [LICENSE](LICENSE).
 
-## Contributing
-See `CONTRIBUTING.md`. All contributions must preserve the strict safety, grounding, consent, and local-first principles.
-
----
-
-*Built with the help of rigorous design-review loops (design-doc-writer + reviewer personas) and following a 20-step implementation order for a production, not demo, system.*
+**Review everything. Use AI as planning support, not as a substitute for human
+judgment or professional advice.**

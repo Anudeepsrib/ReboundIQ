@@ -6,6 +6,7 @@ from .ai_requests import AIRequest
 from .agent_campaigns import AgentCampaign
 from .agent_tool_calls import AgentToolCall
 from .agent_approval_requests import AgentApprovalRequest
+from .workflows import RunwaySnapshot, ApplicationRecord, ProofAsset, InterviewSession
 
 AIRequestLog = AIRequest
 
@@ -20,6 +21,10 @@ __all__ = [
     "AgentCampaign",
     "AgentToolCall",
     "AgentApprovalRequest",
+    "RunwaySnapshot",
+    "ApplicationRecord",
+    "ProofAsset",
+    "InterviewSession",
 ]
 # job_application, document, agent_campaigns, memory_records etc added in later migrations / PRs
 # ai_requests added in PR-4 for full audit of gateway calls (redacted + consent + full_audit_jsonb)
