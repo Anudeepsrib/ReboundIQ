@@ -18,6 +18,7 @@ type ResumeVersionResult = {
   version_name: string;
   ats_score: number;
   content_json: Record<string, unknown>;
+  source_inputs?: Record<string, unknown> | null;
   target_role?: string | null;
   created_at?: string;
 };
@@ -172,7 +173,13 @@ export default function ResumePage() {
           <pre className="scroll-panel max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/25 p-4 text-xs leading-relaxed text-zinc-300">
             {JSON.stringify(version.content_json, null, 2)}
           </pre>
-          <div className="disclaimer mt-3">Source: your uploaded resume. Edit before use. Citations appear in the full RAG workflow.</div>
+          {version.source_inputs && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-400">
+              <div className="font-medium text-zinc-200">Grounding inputs</div>
+              <pre className="mt-2 overflow-auto whitespace-pre-wrap">{JSON.stringify(version.source_inputs, null, 2)}</pre>
+            </div>
+          )}
+          <div className="disclaimer mt-3">Source: your uploaded resume and stored grounding snippets. Edit before use.</div>
         </section>
       )}
 
@@ -200,7 +207,17 @@ export default function ResumePage() {
               <article key={item.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-sm">
                 <div className="font-medium text-white">{item.version_name}</div>
                 <div className="mt-1 text-xs text-zinc-500">{item.target_role || 'No target role'} | ATS {item.ats_score ?? 'n/a'}</div>
-                <a className="btn btn-secondary mt-3 px-3 py-1.5" href="/jobs">Use in JD match</a>
+                {item.source_inputs && (
+                  <div className="mt-2 text-xs text-zinc-500">
+                    Grounded: {item.source_inputs.grounded ? 'yes' : 'review'} | Snippets {Number(item.source_inputs.recalled_snippets_count || 0)}
+                  </div>
+                )}
+                <a
+                  className="btn btn-secondary mt-3 px-3 py-1.5"
+                  href={`/jobs?resumeVersionId=${encodeURIComponent(item.id)}${item.resume_id ? `&resumeId=${encodeURIComponent(item.resume_id)}` : ''}`}
+                >
+                  Use in JD match
+                </a>
               </article>
             ))}
             {!versionsQuery.data?.length && <div className="text-sm text-zinc-500">No tailored versions yet.</div>}

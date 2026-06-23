@@ -24,12 +24,14 @@ export default function Login() {
       let response = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       if (response.status === 401 || response.status === 422) {
         response = await fetch(`${API_BASE}/api/v1/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ email, password, full_name: 'Demo User' }),
         });
       }
@@ -38,7 +40,7 @@ export default function Login() {
         throw new Error(data.detail || 'Login failed');
       }
       setStoredTokens(data.access_token, data.refresh_token);
-      setMsg('Logged in. Campaigns and JD Match can now call the authenticated API.');
+      setMsg('Logged in. Authenticated workflows can now use your user-scoped API session.');
     } catch (error) {
       setMsg(error instanceof Error ? error.message : 'Login failed');
     } finally {

@@ -102,6 +102,34 @@ class AIGateway:
             "base_url": self.base_url,
         }
 
+    def validate_local_model_config(
+        self,
+        *,
+        chat_model: str,
+        embedding_model: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> Dict[str, str]:
+        chat_model = chat_model.strip()
+        embedding_model = (embedding_model or settings.AI_EMBEDDING_MODEL).strip()
+        next_base_url = (base_url or settings.AI_BASE_URL).strip().rstrip("/")
+        if not chat_model:
+            raise ValueError("chat_model is required")
+        if not embedding_model:
+            raise ValueError("embedding_model is required")
+        if not next_base_url.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        if not self._is_local_base_url(next_base_url):
+            raise ValueError(
+                "Local model base_url must point to localhost, ollama, or host.docker.internal. "
+                "Use the external provider consent flow for remote services."
+            )
+        return {
+            "provider": "ollama",
+            "chat_model": chat_model,
+            "embedding_model": embedding_model,
+            "base_url": next_base_url,
+        }
+
     def _is_external(self) -> bool:
         """Local (ollama/vllm on localhost) default; anything else or flag = external."""
         return self.provider not in ("ollama", "vllm")

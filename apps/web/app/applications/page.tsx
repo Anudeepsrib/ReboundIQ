@@ -28,6 +28,12 @@ type Application = {
   created_at: string;
 };
 
+type ResumeVersion = {
+  id: string;
+  version_name: string;
+  target_role?: string | null;
+};
+
 function label(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -58,6 +64,10 @@ export default function Applications() {
     next_step: 'Review JD match and decide next action.',
     next_step_at: dateInput(7),
     sponsorship_signal: 'unknown',
+    source_url: '',
+    location: '',
+    salary_range: '',
+    resume_version_id: '',
     jd_snapshot: '',
     notes: '',
   });
@@ -65,6 +75,12 @@ export default function Applications() {
   const applicationsQuery = useQuery({
     queryKey: ['applications'],
     queryFn: () => apiFetch<Application[]>('/api/v1/applications'),
+    enabled: Boolean(token),
+  });
+
+  const versionsQuery = useQuery({
+    queryKey: ['resume-versions'],
+    queryFn: () => apiFetch<ResumeVersion[]>('/api/v1/resumes/versions'),
     enabled: Boolean(token),
   });
 
@@ -78,11 +94,28 @@ export default function Applications() {
           role: draft.role.trim(),
           status: 'saved',
           next_step_at: draft.next_step_at ? `${draft.next_step_at}T12:00:00Z` : null,
+          source_url: draft.source_url.trim() || null,
+          location: draft.location.trim() || null,
+          salary_range: draft.salary_range.trim() || null,
+          resume_version_id: draft.resume_version_id || null,
           metadata_json: { priority: Number(draft.fit_score) >= 80 ? 'high' : 'medium' },
         }),
       }),
     onSuccess: () => {
-      setDraft({ company: '', role: '', fit_score: 70, next_step: 'Review JD match and decide next action.', next_step_at: dateInput(7), sponsorship_signal: 'unknown', jd_snapshot: '', notes: '' });
+      setDraft({
+        company: '',
+        role: '',
+        fit_score: 70,
+        next_step: 'Review JD match and decide next action.',
+        next_step_at: dateInput(7),
+        sponsorship_signal: 'unknown',
+        source_url: '',
+        location: '',
+        salary_range: '',
+        resume_version_id: '',
+        jd_snapshot: '',
+        notes: '',
+      });
       queryClient.invalidateQueries({ queryKey: ['applications'] });
     },
   });
@@ -99,6 +132,9 @@ export default function Applications() {
   });
 
   const applications = useMemo(() => applicationsQuery.data ?? [], [applicationsQuery.data]);
+  const versionNames = useMemo(() => {
+    return new Map((versionsQuery.data || []).map((version) => [version.id, version.version_name]));
+  }, [versionsQuery.data]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return applications.filter((app) => {
@@ -152,10 +188,25 @@ export default function Applications() {
           <label className="text-sm"><span className="mb-2 block text-zinc-400">Company</span><input className="input" value={draft.company} onChange={(event) => setDraft({ ...draft, company: event.target.value })} /></label>
           <label className="text-sm"><span className="mb-2 block text-zinc-400">Role</span><input className="input" value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value })} /></label>
           <label className="text-sm"><span className="mb-2 block text-zinc-400">Fit score</span><input className="input" type="number" min={0} max={100} value={draft.fit_score} onChange={(event) => setDraft({ ...draft, fit_score: Number(event.target.value) })} /></label>
+          <label className="text-sm"><span className="mb-2 block text-zinc-400">Source URL</span><input className="input" value={draft.source_url} onChange={(event) => setDraft({ ...draft, source_url: event.target.value })} /></label>
+          <label className="text-sm"><span className="mb-2 block text-zinc-400">Location</span><input className="input" value={draft.location} onChange={(event) => setDraft({ ...draft, location: event.target.value })} /></label>
+          <label className="text-sm"><span className="mb-2 block text-zinc-400">Salary range</span><input className="input" value={draft.salary_range} onChange={(event) => setDraft({ ...draft, salary_range: event.target.value })} /></label>
           <label className="text-sm"><span className="mb-2 block text-zinc-400">Next step date</span><input className="input" type="date" value={draft.next_step_at} onChange={(event) => setDraft({ ...draft, next_step_at: event.target.value })} /></label>
           <label className="text-sm"><span className="mb-2 block text-zinc-400">Sponsorship signal</span><input className="input" value={draft.sponsorship_signal} onChange={(event) => setDraft({ ...draft, sponsorship_signal: event.target.value })} /></label>
           <label className="text-sm"><span className="mb-2 block text-zinc-400">Next step</span><input className="input" value={draft.next_step} onChange={(event) => setDraft({ ...draft, next_step: event.target.value })} /></label>
+          <label className="text-sm lg:col-span-3">
+            <span className="mb-2 block text-zinc-400">Resume version</span>
+            <select className="input" value={draft.resume_version_id} onChange={(event) => setDraft({ ...draft, resume_version_id: event.target.value })}>
+              <option value="">No tailored version linked</option>
+              {(versionsQuery.data || []).map((version) => (
+                <option key={version.id} value={version.id}>
+                  {version.version_name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="text-sm lg:col-span-3"><span className="mb-2 block text-zinc-400">JD snapshot</span><textarea className="input h-24" value={draft.jd_snapshot} onChange={(event) => setDraft({ ...draft, jd_snapshot: event.target.value })} /></label>
+          <label className="text-sm lg:col-span-3"><span className="mb-2 block text-zinc-400">Notes</span><textarea className="input h-20" value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
         </div>
         <button className="btn btn-primary mt-5" onClick={() => createApplication.mutate()} disabled={createApplication.isPending || !draft.company.trim() || !draft.role.trim()}>
           <CirclePlus className="h-4 w-4" /> {createApplication.isPending ? 'Saving...' : 'Add application'}
@@ -187,7 +238,11 @@ export default function Applications() {
             <dl className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
               <div><dt className="text-xs text-zinc-500">Next step</dt><dd className="mt-1 text-zinc-300">{app.next_step || 'Not set'}</dd></div>
               <div><dt className="text-xs text-zinc-500">Due</dt><dd className="mt-1 text-zinc-300">{dueLabel(app.next_step_at)}</dd></div>
+              <div><dt className="text-xs text-zinc-500">Location</dt><dd className="mt-1 text-zinc-300">{app.location || 'Not captured'}</dd></div>
+              <div><dt className="text-xs text-zinc-500">Salary</dt><dd className="mt-1 text-zinc-300">{app.salary_range || 'Not captured'}</dd></div>
               <div><dt className="text-xs text-zinc-500">Sponsorship</dt><dd className="mt-1 text-zinc-300">{app.sponsorship_signal || 'unknown'}</dd></div>
+              <div><dt className="text-xs text-zinc-500">Resume version</dt><dd className="mt-1 text-zinc-300">{app.resume_version_id ? versionNames.get(app.resume_version_id) || app.resume_version_id : 'Not linked'}</dd></div>
+              <div><dt className="text-xs text-zinc-500">Source</dt><dd className="mt-1 text-zinc-300">{app.source_url ? <a className="text-cyan-200 underline" href={app.source_url} target="_blank" rel="noreferrer">Open posting</a> : 'Not captured'}</dd></div>
               <div><dt className="text-xs text-zinc-500">JD snapshot</dt><dd className="mt-1 line-clamp-3 text-zinc-300">{app.jd_snapshot || 'Not captured'}</dd></div>
             </dl>
             <div className="mt-5 flex flex-wrap gap-2">

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.gateway import gateway
 from app.core.logging import logger
 from app.models.resume import Resume, ResumeVersion, DocumentChunk
+from app.services.ai_preferences import get_ai_preferences
 from app.services.storage import get_storage
 
 
@@ -76,13 +77,19 @@ async def _index_resume_chunks(
 ) -> int:
     """Chunk, embed via gateway (audit+redact), persist to document_chunks. User isolated."""
     chunks = _chunk_text(text)
+    prefs = await get_ai_preferences(db, user_id)
     count = 0
     for idx, ch in enumerate(chunks):
         if len(ch) < 30:
             continue
         emb: Optional[list[float]] = None
         try:
-            emb = await gateway.embed(ch, user_id=user_id, request_id=request_id)
+            emb = await gateway.embed(
+                ch,
+                model=prefs["embedding_model"],
+                user_id=user_id,
+                request_id=request_id,
+            )
         except Exception as e:
             logger.warning(
                 "resume.chunk_embed_fail",
@@ -151,6 +158,7 @@ async def upload_and_parse_resume(
         raise ValueError(f"Unsupported file type: {ext}")
 
     text = extract_text(file_bytes, ext)
+    prefs = await get_ai_preferences(db, user_id)
 
     # Structured via SINGLE gateway (redact/audit/consent/local-first enforced)
     system = (
@@ -164,6 +172,7 @@ async def upload_and_parse_resume(
         system,
         text[:10000],
         schema={"type": "object"},
+        model=prefs["chat_model"],
         user_id=user_id,
         request_id=request_id,
     )
@@ -239,6 +248,7 @@ async def create_resume_version(
 
     base_text = resume.parsed_text or ""
     base_parsed = resume.parsed_json or {}
+    prefs = await get_ai_preferences(db, user_id)
 
     # Memory recall integration for grounding (evidence only)
     recalled = await recall_similar_chunks(
@@ -268,6 +278,7 @@ async def create_resume_version(
         system,
         user_msg,
         schema={"type": "object"},
+        model=prefs["chat_model"],
         user_id=user_id,
         request_id=request_id,
     )
@@ -324,9 +335,11 @@ async def create_resume_version(
 
     return {
         "id": version.id,
+        "resume_id": version.resume_id,
         "version_name": version.version_name,
         "target_role": version.target_role,
         "content_json": version.content_json,
+        "source_inputs": version.source_inputs,
         "ats_score": version.ats_score,
         "created_at": version.created_at,
     }
@@ -368,6 +381,7 @@ async def list_user_resume_versions(
             "version_name": version.version_name,
             "target_role": version.target_role,
             "content_json": version.content_json,
+            "source_inputs": version.source_inputs,
             "ats_score": version.ats_score,
             "created_at": version.created_at,
         }

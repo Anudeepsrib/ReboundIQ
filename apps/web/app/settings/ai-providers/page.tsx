@@ -11,12 +11,14 @@ type ProviderStatus = {
   embedding_model: string;
   local_base_url: string;
   external_enabled: boolean;
+  external_user_consented: boolean;
   local_available: boolean;
   local_models: string[];
   chat_model_present: boolean;
   embedding_model_present: boolean;
   redaction_enabled: boolean;
   memory_provider: string;
+  preference_scope: string;
 };
 
 type LocalModelsResponse = {
@@ -40,20 +42,20 @@ type ActionResult = {
   sample?: string;
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 const FALLBACK_STATUS: ProviderStatus = {
   provider: 'ollama',
   chat_model: 'llama3.2:1b',
   embedding_model: 'nomic-embed-text',
   local_base_url: 'http://localhost:11434',
   external_enabled: false,
+  external_user_consented: false,
   local_available: false,
   local_models: [],
   chat_model_present: false,
   embedding_model_present: false,
   redaction_enabled: true,
   memory_provider: 'unknown',
+  preference_scope: 'system_default',
 };
 
 const FALLBACK_MODEL_INFO: LocalModelsResponse = {
@@ -95,21 +97,16 @@ export default function AIProviders() {
 
   async function load() {
     try {
-      const [statusResponse, localModelsResponse] = await Promise.all([
-        fetch(`${API}/api/v1/ai/status`),
-        fetch(`${API}/api/v1/ai/local-models`),
+      const [nextStatus, nextModelInfo] = await Promise.all([
+        apiFetch<ProviderStatus>('/api/v1/ai/status'),
+        apiFetch<LocalModelsResponse>('/api/v1/ai/local-models'),
       ]);
-      if (!statusResponse.ok || !localModelsResponse.ok) {
-        throw new Error('AI settings API is not ready');
-      }
-      const nextStatus = (await statusResponse.json()) as ProviderStatus;
-      const nextModelInfo = (await localModelsResponse.json()) as LocalModelsResponse;
       setStatus(nextStatus);
       setModelInfo(nextModelInfo);
       setChatModel(nextStatus.chat_model);
       setEmbeddingModel(nextStatus.embedding_model);
       setBaseUrl(nextStatus.local_base_url);
-      setEnable(nextStatus.external_enabled);
+      setEnable(nextStatus.external_user_consented);
       setSaveResult(null);
     } catch (error) {
       setStatus(FALLBACK_STATUS);
@@ -129,20 +126,22 @@ export default function AIProviders() {
   async function saveLocalModel() {
     const selectedChatModel = customModel.trim() || chatModel;
     if (!selectedChatModel.trim()) return;
+    if (!token) {
+      setSaveResult({ ok: false, error: 'Login required to save a per-user local model preference.' });
+      return;
+    }
 
     setLoading(true);
     setSaveResult(null);
     try {
-      const response = await fetch(`${API}/api/v1/ai/local-models/select`, {
+      const data = await apiFetch<ActionResult>('/api/v1/ai/local-models/select', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_model: selectedChatModel,
           embedding_model: embeddingModel,
           base_url: baseUrl,
         }),
       });
-      const data = (await response.json()) as ActionResult;
       setSaveResult(data);
       await load();
       setCustomModel('');
@@ -180,8 +179,8 @@ export default function AIProviders() {
     setLoading(true);
     setTestResult(null);
     try {
-      const response = await fetch(`${API}/api/v1/ai/test`, { method: 'POST' });
-      setTestResult((await response.json()) as ActionResult);
+      const data = await apiFetch<ActionResult>('/api/v1/ai/test', { method: 'POST' });
+      setTestResult(data);
     } catch (error) {
       setTestResult({ ok: false, error: error instanceof Error ? error.message : 'Connection test failed' });
     } finally {
@@ -207,16 +206,16 @@ export default function AIProviders() {
         <MetricCard label="Chat model" value={status?.chat_model || '...'} detail="selected local tag" icon={Bot} />
         <MetricCard label="Installed models" value={modelInfo?.installed_models?.length || 0} detail="reported by Ollama" icon={PlugZap} tone="text-violet-300" />
         <MetricCard
-          label="External AI"
-          value={status?.external_enabled ? 'Enabled' : 'Disabled'}
-          detail="opt-in only"
+          label="External consent"
+          value={status?.external_user_consented ? 'Consented' : 'Disabled'}
+          detail={status?.external_enabled ? 'deployment gate active' : 'deployment gate off'}
           icon={ShieldCheck}
-          tone={status?.external_enabled ? 'text-amber-300' : 'text-emerald-300'}
+          tone={status?.external_user_consented ? 'text-amber-300' : 'text-emerald-300'}
         />
       </section>
 
       <SafetyNotice tone={status?.external_enabled ? 'warning' : 'success'}>
-        External AI is {status?.external_enabled ? 'enabled' : 'disabled'}. Local model selection is restricted to localhost-style Ollama endpoints.
+        External AI is {status?.external_enabled ? 'enabled for this user and deployment' : 'blocked by default or deployment gate'}. Local model selection is restricted to localhost-style Ollama endpoints.
       </SafetyNotice>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -337,7 +336,7 @@ export default function AIProviders() {
           </section>
 
           <section className="card">
-            <SectionHeader title="Connection test" description="Verify the active local provider path before relying on generation." />
+            <SectionHeader title="Connection test" description="Verify the active authenticated local provider path before relying on generation." />
             {testResult ? (
               <pre className="overflow-auto rounded-lg bg-black p-3 text-xs text-zinc-300">{JSON.stringify(testResult, null, 2)}</pre>
             ) : (

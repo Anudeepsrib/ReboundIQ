@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -14,7 +15,9 @@ from app.ai.memory import memory_provider
 from app.core.logging import logger
 from app.models.agent_approval_requests import AgentApprovalRequest
 from app.models.agent_tool_calls import AgentToolCall
+from app.models.profile import UserProfile
 from app.models.resume import Resume
+from app.services.ai_preferences import get_ai_preferences
 from app.services.resume import recall_similar_chunks
 
 
@@ -140,11 +143,21 @@ class CampaignToolbelt:
             warnings.append(f"document chunk recall unavailable: {type(ex).__name__}")
 
         try:
+            profile = await self.db.scalar(
+                select(UserProfile).where(UserProfile.user_id == payload.user_id)
+            )
+            allow_sensitive_memory = bool(
+                getattr(profile, "consent_memory_sensitive", False)
+            )
+            if not allow_sensitive_memory:
+                warnings.append("sensitive memory skipped: consent not granted")
             memories = await memory_provider.recall(
                 user_id=payload.user_id,
                 query=payload.query,
                 top_k=min(payload.top_k, 3),
-                sensitivity_max="medium",
+                sensitivity_max="medium" if allow_sensitive_memory else "low",
+                consent_scope="memory_sensitive" if allow_sensitive_memory else None,
+                min_created_at=datetime.now(timezone.utc) - timedelta(days=365),
             )
             for mem in memories:
                 content = str(mem.get("content") or "")
@@ -185,10 +198,12 @@ class CampaignToolbelt:
         warnings: list[str] = []
         parsed: dict[str, Any] = {}
         try:
+            prefs = await get_ai_preferences(self.db, payload.user_id)
             parsed = await gateway.structured(
                 _PLAN_SYSTEM,
                 _plan_user_prompt(payload),
                 schema={"type": "object"},
+                model=prefs["chat_model"],
                 user_id=payload.user_id,
                 request_id=payload.request_id,
                 metadata={
@@ -234,10 +249,12 @@ class CampaignToolbelt:
         warnings: list[str] = []
         parsed: dict[str, Any] = {}
         try:
+            prefs = await get_ai_preferences(self.db, payload.user_id)
             parsed = await gateway.structured(
                 _DRAFT_SYSTEM,
                 _draft_user_prompt(payload),
                 schema={"type": "object"},
+                model=prefs["chat_model"],
                 user_id=payload.user_id,
                 request_id=payload.request_id,
                 metadata={

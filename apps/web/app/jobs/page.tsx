@@ -18,11 +18,14 @@ type MatchResult = {
   };
   required_skills?: string[];
   missing_skills?: string[];
+  responsibilities?: string[];
   red_flags?: string[];
+  sponsorship_clues?: string[];
   citations?: string[];
   warnings?: string[];
   rewrite_strategy?: string;
   recruiter_message_draft?: string;
+  cover_letter_draft?: string;
 };
 
 type Resume = {
@@ -45,8 +48,14 @@ export default function JobsAnalyzer() {
   const queryClient = useQueryClient();
   const [jd, setJd] = useState('');
   const [resumeText, setResumeText] = useState('');
-  const [resumeId, setResumeId] = useState('');
-  const [resumeVersionId, setResumeVersionId] = useState('');
+  const [resumeId, setResumeId] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('resumeId') || '';
+  });
+  const [resumeVersionId, setResumeVersionId] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('resumeVersionId') || '';
+  });
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [result, setResult] = useState<MatchResult | null>(null);
@@ -101,10 +110,14 @@ export default function JobsAnalyzer() {
           next_step: 'Review evidence fit and decide whether to apply.',
           fit_score: result?.match_score || 0,
           resume_version_id: resumeVersionId || null,
-          sponsorship_signal: result?.red_flags?.join('; ') || 'unknown',
+          sponsorship_signal: result?.sponsorship_clues?.join('; ') || 'unknown',
           metadata_json: {
             source: 'jd_analysis',
             citations: result?.citations || [],
+            responsibilities: result?.responsibilities || [],
+            red_flags: result?.red_flags || [],
+            sponsorship_clues: result?.sponsorship_clues || [],
+            cover_letter_draft: result?.cover_letter_draft || '',
             groundedness_score: result?.groundedness_score || 0,
           },
         }),
@@ -270,6 +283,14 @@ export default function JobsAnalyzer() {
                 <dd className="mt-1 text-zinc-200">{result.missing_skills?.join(', ') || 'None extracted'}</dd>
               </div>
               <div>
+                <dt className="text-zinc-500">Responsibilities</dt>
+                <dd className="mt-1 text-zinc-200">{result.responsibilities?.join(' | ') || 'None extracted'}</dd>
+              </div>
+              <div>
+                <dt className="text-zinc-500">Sponsorship clues</dt>
+                <dd className="mt-1 text-zinc-200">{result.sponsorship_clues?.join(' | ') || 'None extracted'}</dd>
+              </div>
+              <div>
                 <dt className="text-zinc-500">Red flags</dt>
                 <dd className="mt-1 text-zinc-200">{result.red_flags?.join(' | ') || 'None extracted'}</dd>
               </div>
@@ -290,6 +311,10 @@ export default function JobsAnalyzer() {
             <h2 className="section-title mt-6">Recruiter message draft</h2>
             <div className="mt-3 whitespace-pre-wrap rounded-lg border border-white/10 bg-black/25 p-4 text-xs leading-5 text-zinc-300">
               {result.recruiter_message_draft || 'No recruiter draft generated because resume evidence is missing.'}
+            </div>
+            <h2 className="section-title mt-6">Cover letter draft</h2>
+            <div className="mt-3 whitespace-pre-wrap rounded-lg border border-white/10 bg-black/25 p-4 text-xs leading-5 text-zinc-300">
+              {result.cover_letter_draft || 'No cover letter draft generated because resume evidence is missing.'}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button className="btn btn-primary" onClick={() => saveApplication.mutate()} disabled={saveApplication.isPending || !result}>

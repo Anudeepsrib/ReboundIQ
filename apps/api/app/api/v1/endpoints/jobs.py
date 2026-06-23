@@ -7,6 +7,7 @@ from app.ai.gateway import gateway
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.resume import Resume, ResumeVersion
+from app.services.ai_preferences import get_ai_preferences
 
 router = APIRouter()
 
@@ -66,8 +67,14 @@ async def analyze_jd(
 Be evidence-based only from the provided text. No fabrication."""
 
     rid = getattr(request.state, "request_id", None)
+    prefs = await get_ai_preferences(db, user_id)
     extracted = await gateway.structured(
-        system, jd[:6000], schema={"type": "object"}, user_id=user_id, request_id=rid
+        system,
+        jd[:6000],
+        schema={"type": "object"},
+        model=prefs["chat_model"],
+        user_id=user_id,
+        request_id=rid,
     )
 
     resume_snippet, evidence_label = await _resolve_resume_evidence(
@@ -111,6 +118,7 @@ Be evidence-based only from the provided text. No fabrication."""
         "Return only valid JSON for match analysis.",
         match_prompt,
         schema={"type": "object"},
+        model=prefs["chat_model"],
         user_id=user_id,
         request_id=rid,
     )
@@ -164,6 +172,7 @@ async def _resolve_resume_evidence(
             select(ResumeVersion).where(
                 ResumeVersion.id == resume_version_id,
                 ResumeVersion.user_id == user_id,
+                ResumeVersion.deleted_at.is_(None),
             )
         )
         version = result.scalar_one_or_none()
@@ -176,6 +185,7 @@ async def _resolve_resume_evidence(
     if resume_id:
         result = await db.execute(
             select(Resume).where(Resume.id == resume_id, Resume.user_id == user_id)
+            .where(Resume.deleted_at.is_(None))
         )
         resume = result.scalar_one_or_none()
         if not resume:

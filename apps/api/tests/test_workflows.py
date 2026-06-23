@@ -65,5 +65,5 @@ def test_alembic_revision_graph_has_single_head():
         text=True,
     )
 
-    assert result.stdout.strip() == "0005 (head)"
+    assert result.stdout.strip() == "0006 (head)"
     assert "present more than once" not in result.stderr

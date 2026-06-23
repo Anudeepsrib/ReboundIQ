@@ -29,6 +29,7 @@ class ResumeVersionOut(BaseModel):
     version_name: str
     target_role: Optional[str]
     content_json: dict
+    source_inputs: Optional[dict] = None
     ats_score: Optional[float]
     created_at: datetime
 

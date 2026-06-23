@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_optional_current_user
 from app.db.session import get_db
 from app.ai.gateway import gateway
 from app.ai.memory import (
@@ -14,6 +14,7 @@ from app.ai.memory import (
 )  # PR-6: basic retain/recall wired for RAG/services
 from app.models.consent_records import ConsentRecord
 from app.models.profile import UserProfile
+from app.services.ai_preferences import get_ai_preferences, save_ai_preferences
 from app.services.audit import log_action
 
 router = APIRouter()
@@ -30,12 +31,14 @@ class ProviderStatus(BaseModel):
     embedding_model: str
     local_base_url: str
     external_enabled: bool
+    external_user_consented: bool
     local_available: bool
     local_models: List[str]
     chat_model_present: bool
     embedding_model_present: bool
     redaction_enabled: bool
     memory_provider: str  # PR-6: "postgres+pgvector" | "inmem-fallback"
+    preference_scope: str = "system_default"
 
 
 class LocalModelRequest(BaseModel):
@@ -68,7 +71,17 @@ SUGGESTED_LOCAL_MODELS = [
 
 
 @router.get("/status", response_model=ProviderStatus)
-async def status():
+async def status(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    user_id = current_user["id"] if current_user else None
+    prefs = await get_ai_preferences(db, user_id)
+    profile: UserProfile | None = None
+    if user_id:
+        profile = await db.scalar(
+            select(UserProfile).where(UserProfile.user_id == user_id)
+        )
     local_available = False
     local_models: List[str] = []
     chat_model_present = False
@@ -78,8 +91,8 @@ async def status():
             h = await gateway.local_health()
             local_available = bool(h.get("local") and not h.get("error"))
             local_models = h.get("models", []) or []
-            chat_model_present = settings.AI_CHAT_MODEL in local_models
-            embedding_model_present = settings.AI_EMBEDDING_MODEL in local_models
+            chat_model_present = prefs["chat_model"] in local_models
+            embedding_model_present = prefs["embedding_model"] in local_models
         except Exception:
             local_available = False
     mem_type = (
@@ -88,30 +101,42 @@ async def status():
         else "inmem-fallback"
     )
     return {
-        "provider": settings.AI_PROVIDER,
-        "chat_model": settings.AI_CHAT_MODEL,
-        "embedding_model": settings.AI_EMBEDDING_MODEL,
-        "local_base_url": settings.AI_BASE_URL,
-        "external_enabled": settings.ENABLE_EXTERNAL_AI,
+        "provider": prefs["provider"],
+        "chat_model": prefs["chat_model"],
+        "embedding_model": prefs["embedding_model"],
+        "local_base_url": prefs["base_url"],
+        "external_enabled": bool(
+            settings.ENABLE_EXTERNAL_AI
+            and getattr(profile, "consent_external_ai", False)
+        ),
+        "external_user_consented": bool(getattr(profile, "consent_external_ai", False)),
         "local_available": local_available,
         "local_models": local_models,
         "chat_model_present": chat_model_present,
         "embedding_model_present": embedding_model_present,
         "redaction_enabled": True,
         "memory_provider": mem_type,
+        "preference_scope": "user" if user_id else "system_default",
     }
 
 
 @router.get("/local-models")
-async def local_models(request: Request):
+async def local_models(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
     rid = getattr(request.state, "request_id", None)
+    prefs = await get_ai_preferences(db, current_user["id"] if current_user else None)
     health = await gateway.local_health(request_id=rid)
-    models = health.get("models", []) if health.get("local") and not health.get("error") else []
+    models = (
+        health.get("models", []) if health.get("local") and not health.get("error") else []
+    )
     return {
         "provider": "ollama",
-        "base_url": settings.AI_BASE_URL,
-        "chat_model": settings.AI_CHAT_MODEL,
-        "embedding_model": settings.AI_EMBEDDING_MODEL,
+        "base_url": prefs["base_url"],
+        "chat_model": prefs["chat_model"],
+        "embedding_model": prefs["embedding_model"],
         "installed_models": models,
         "suggested_models": SUGGESTED_LOCAL_MODELS,
         "request_id": rid,
@@ -121,21 +146,45 @@ async def local_models(request: Request):
 
 
 @router.post("/local-models/select", response_model=LocalModelResponse)
-async def select_local_model(req: LocalModelRequest, request: Request):
+async def select_local_model(
+    req: LocalModelRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     rid = getattr(request.state, "request_id", None)
-    configured = gateway.configure_local_models(
+    configured = gateway.validate_local_model_config(
         chat_model=req.chat_model,
         embedding_model=req.embedding_model or settings.AI_EMBEDDING_MODEL,
         base_url=req.base_url or settings.AI_BASE_URL,
     )
+    configured = await save_ai_preferences(
+        db,
+        current_user["id"],
+        chat_model=configured["chat_model"],
+        embedding_model=configured["embedding_model"],
+        base_url=configured["base_url"],
+    )
+    await log_action(
+        db,
+        user_id=current_user["id"],
+        action="update",
+        resource_type="ai_preferences",
+        resource_id=current_user["id"],
+        request_id=rid,
+        metadata={"chat_model": configured["chat_model"]},
+    )
+    await db.commit()
     health = await gateway.local_health(request_id=rid)
-    local_models = health.get("models", []) if health.get("local") and not health.get("error") else []
+    local_models = (
+        health.get("models", []) if health.get("local") and not health.get("error") else []
+    )
     chat_model_present = configured["chat_model"] in local_models
     embedding_model_present = configured["embedding_model"] in local_models
     missing_warning = (
         "Selected model is not currently reported by Ollama. Pull it locally, then test the connection."
         if not chat_model_present
-        else "Runtime local model selection updated for this API process. Persist to .env or user settings for production."
+        else "Local model preference saved for this user."
     )
     return {
         "ok": True,
@@ -191,26 +240,37 @@ async def consent_external(
         metadata={"enabled": req.enable_external},
     )
 
-    settings.ENABLE_EXTERNAL_AI = req.enable_external
-    gateway.enable_external = req.enable_external
     await db.commit()
     await db.refresh(consent)
 
     return {
         "ok": True,
-        "external_now": settings.ENABLE_EXTERNAL_AI,
+        "external_now": bool(settings.ENABLE_EXTERNAL_AI and req.enable_external),
+        "external_user_consented": req.enable_external,
         "consent_id": consent.id,
-        "warning": "External calls are redacted and audited. Refresh your session token to embed the latest consent snapshot.",
+        "warning": (
+            "Consent recorded for this user. External calls remain blocked until "
+            "the deployment-level ENABLE_EXTERNAL_AI gate is enabled."
+            if not settings.ENABLE_EXTERNAL_AI and req.enable_external
+            else "External calls are redacted and audited for this user."
+        ),
     }
 
 
 @router.post("/test")
-async def test_connection(request: Request):
+async def test_connection(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
     rid = getattr(request.state, "request_id", None)
+    prefs = await get_ai_preferences(db, current_user["id"] if current_user else None)
     try:
         res = await gateway.chat(
             [{"role": "user", "content": "Reply with OK only."}],
+            model=prefs["chat_model"],
             max_tokens=5,
+            user_id=current_user["id"] if current_user else None,
             request_id=rid,
         )
         # PR-6: also smoke memory retain/recall (uses inmem or pg; always user-isolated)
@@ -230,7 +290,7 @@ async def test_connection(request: Request):
         return {
             "ok": True,
             "provider": settings.AI_PROVIDER,
-            "chat_model": settings.AI_CHAT_MODEL,
+            "chat_model": prefs["chat_model"],
             "sample": res["content"][:50],
             "request_id": rid,
             "memory_smoke": {
@@ -244,11 +304,16 @@ async def test_connection(request: Request):
 
 
 @router.get("/test-conn")
-async def test_local_conn(request: Request):
+async def test_local_conn(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
     """Dedicated local connection test (ollama /api/tags + model presence + optional smoke).
     Use this for health dashboards and startup validation. Local-only path.
     """
     rid = getattr(request.state, "request_id", None)
+    prefs = await get_ai_preferences(db, current_user["id"] if current_user else None)
     try:
         h = await gateway.local_health(request_id=rid)
         ok = bool(h.get("local") and not h.get("error"))
@@ -257,7 +322,9 @@ async def test_local_conn(request: Request):
             try:
                 chat = await gateway.chat(
                     [{"role": "user", "content": "OK"}],
+                    model=prefs["chat_model"],
                     max_tokens=2,
+                    user_id=current_user["id"] if current_user else None,
                     request_id=rid,
                 )
                 sample = chat.get("content", "")[:30]
@@ -266,7 +333,7 @@ async def test_local_conn(request: Request):
         return {
             "ok": ok,
             "provider": settings.AI_PROVIDER,
-            "chat_model": settings.AI_CHAT_MODEL,
+            "chat_model": prefs["chat_model"],
             "health": h,
             "sample": sample,
             "request_id": rid,

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -20,8 +20,9 @@ from app.core.logging import logger
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Use HTTPBearer (not OAuth2PasswordBearer for pure bearer tokens)
-bearer_scheme = HTTPBearer(auto_error=True)
+# Use HTTPBearer for API clients, but allow browser clients to rely on HttpOnly
+# cookies set by the auth endpoints.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 # Redis client for blacklist (module singleton for simplicity; injected in prod if needed)
 _redis_client: Optional[aioredis.Redis] = None
@@ -140,14 +141,34 @@ async def decode_token(token: str) -> Dict[str, Any]:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> Dict[str, Any]:
     """
     FastAPI dependency. Decodes JWT (via decode_token), enforces not blacklisted.
     Returns normalized user dict. All data queries MUST filter by user['id'].
     """
-    token = credentials.credentials
+    token = credentials.credentials if credentials else request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return await decode_token(token)
+
+
+async def get_optional_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> Dict[str, Any] | None:
+    token = credentials.credentials if credentials else request.cookies.get("access_token")
+    if not token:
+        return None
+    try:
+        return await decode_token(token)
+    except HTTPException:
+        return None
 
 
 def check_owner(current_user: Dict[str, Any], resource_owner_id: str) -> None:

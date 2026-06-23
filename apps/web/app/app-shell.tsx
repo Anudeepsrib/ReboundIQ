@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
   Bot,
@@ -18,6 +20,11 @@ import {
   Sparkles,
   Trophy,
 } from 'lucide-react';
+import { apiFetch, getStoredToken } from '@/lib/api';
+
+type RemindersResponse = {
+  reminders: Array<{ id: string; severity: string }>;
+};
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -39,6 +46,13 @@ function isActivePath(pathname: string, href: string) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [token] = useState(() => getStoredToken());
+  const remindersQuery = useQuery({
+    queryKey: ['global-reminders'],
+    queryFn: () => apiFetch<RemindersResponse>('/api/v1/reminders/'),
+    enabled: Boolean(token),
+  });
+  const reminderCount = remindersQuery.data?.reminders?.length || 0;
 
   return (
     <div className="min-h-screen">
@@ -79,6 +93,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span>Ollama local</span>
             <ChevronRight className="h-3.5 w-3.5 text-zinc-600" aria-hidden="true" />
             <span>Manual actions</span>
+            {token && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-zinc-600" aria-hidden="true" />
+                <Link href="/dashboard" className={reminderCount ? 'text-amber-200 underline' : 'text-zinc-500'}>
+                  {reminderCount} reminders
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
