@@ -50,6 +50,123 @@ user opts in, and deterministic backend services remain authoritative.
 - **Golden evals** for safety, groundedness, redaction, schema, tool fidelity,
   and campaign compliance behavior.
 
+## Polished Local-First Demo
+
+The demo is designed to show ReboundIQ as a career recovery product, not a
+generic job tracker. It follows one synthetic persona from layoff intake to
+offer decision support while keeping the local-first, privacy-first, and
+planning-guidance boundaries visible at every step.
+
+### Seeded Persona
+
+Run `make migrate && make seed`, then log in with:
+
+- Email: `maya.patel.demo@reboundiq.local`
+- Password: `ReboundIQ-demo-2026!`
+
+Maya Patel is a synthetic senior backend and AI platform engineer recovering
+from a layoff. The seed includes a runway snapshot, parsed resume, Staff AI
+Platform resume version, three applications, two proof assets, two interview
+sessions, one supervised campaign, pending approval requests, consent records,
+and a local AI audit sample. The source fixture is
+[docs/demo/reboundiq_demo_persona.json](docs/demo/reboundiq_demo_persona.json).
+
+### Layoff-To-Offer Journey
+
+1. **Layoff intake**: Maya signs in, confirms local-first defaults, and sees
+   that external AI and auto-actions are disabled.
+2. **Runway clarity**: she captures expenses, savings, severance assumptions,
+   and action items as planning guidance only.
+3. **Resume evidence**: her original resume is preserved, parsed, chunked, and
+   versioned with source inputs.
+4. **JD targeting**: job descriptions are matched against evidence with missing
+   data called out instead of fabricated.
+5. **Application pipeline**: opportunities move through saved, recruiter, and
+   technical stages with follow-ups and linked resume versions.
+6. **Proof-of-work**: STAR stories and architecture notes are drafted from cited
+   evidence and remain approval-gated.
+7. **Interview readiness**: practice sessions track focus areas, feedback, and
+   scores without claiming hiring outcomes.
+8. **Supervised campaign**: CareerCampaignAgent coordinates typed tools and
+   creates approval requests instead of auto-sending or auto-applying.
+9. **Provider and privacy review**: Maya switches local Ollama tags, verifies
+   external AI consent is off, exports data, and can hard-delete the account.
+10. **Offer decision support**: readiness, reminders, proof, and risk signals
+    help Maya prepare human decisions with qualified professional review where
+    employment, immigration, tax, or financial questions matter.
+
+### Demo Screenshots
+
+These synthetic screenshot assets are generated from the demo fixture with
+`python docs/demo/generate_screenshot_assets.py`.
+
+| Workflow | Screenshot | What To Show |
+| --- | --- | --- |
+| Dashboard command center | <img src="docs/demo/screenshots/dashboard.svg" width="220" alt="Dashboard command center screenshot"> | Readiness, reminders, local-first posture, approval state |
+| Runway planner | <img src="docs/demo/screenshots/runway.svg" width="220" alt="Runway planner screenshot"> | Burn-rate assumptions and planning guidance disclaimer |
+| Resume and JD match | <img src="docs/demo/screenshots/resume-jd.svg" width="220" alt="Resume and JD match screenshot"> | Source inputs, ATS-style signal, missing metrics note |
+| Application tracker | <img src="docs/demo/screenshots/applications.svg" width="220" alt="Application tracker screenshot"> | Stage diversity, next steps, no auto-apply |
+| Proof builder | <img src="docs/demo/screenshots/proof.svg" width="220" alt="Proof builder screenshot"> | Cited STAR story and approval-gated architecture note |
+| Interview prep | <img src="docs/demo/screenshots/interview.svg" width="220" alt="Interview prep screenshot"> | Practice loop, focus areas, no hiring guarantee |
+| Supervised campaign | <img src="docs/demo/screenshots/campaigns.svg" width="220" alt="Supervised campaign screenshot"> | Agent orchestration with pending human approvals |
+| AI provider settings | <img src="docs/demo/screenshots/ai-settings.svg" width="220" alt="AI provider settings screenshot"> | Ollama model switching, external AI disabled, redaction language |
+| Privacy export/delete | <img src="docs/demo/screenshots/privacy.svg" width="220" alt="Privacy export and delete screenshot"> | JSON export, hard delete confirmation, consent records |
+
+### Outcome KPIs
+
+- **Time to first credible plan**: 15 minutes in the demo script.
+- **Evidence coverage**: 2 proof assets linked to active applications.
+- **Pipeline health**: 3 active opportunities across saved, recruiter, and
+  technical stages.
+- **Human control**: 2 pending approval checkpoints and 0 auto-sent artifacts.
+- **Privacy posture**: 100% local AI in seed data and 0 external AI calls.
+- **Interview readiness**: 78/100 current system design practice score.
+
+These are demo/product indicators, not promises of employment, hiring speed,
+compensation, immigration outcomes, tax treatment, or financial results.
+
+### Privacy, Consent, Export, And Delete
+
+- External AI starts disabled at both the deployment and user-consent layers.
+- Sensitive memory and visa-processing consent start disabled for the demo user.
+- `/settings/ai-providers` records external consent only after the user
+  acknowledges the required text; redaction and audit language remains visible.
+- `/settings/privacy` downloads a JSON export covering profile, resumes,
+  document chunks, agent campaigns, approvals, AI requests, consent records,
+  workflow rows, audit logs, and readable stored files.
+- Hard deletion requires typing `DELETE`, removes user-owned database rows, and
+  deletes the `users/{user_id}` storage prefix.
+
+### AI Provider Switching Tests
+
+The demo keeps provider choice local by default:
+
+- `gemma3:4b` or another pulled Ollama tag can be selected for the demo user.
+- Localhost-style Ollama base URLs are accepted.
+- Remote model base URLs are rejected with a local-provider bypass warning.
+- External providers require explicit user consent plus the deployment-level
+  `ENABLE_EXTERNAL_AI` gate.
+
+Focused coverage lives in [apps/api/tests/test_demo_release.py](apps/api/tests/test_demo_release.py),
+including local provider validation, remote URL rejection, screenshot/KPI
+coverage, export/delete table coverage, and legal disclaimer checks.
+
+### Competitive Differentiation
+
+- Versus generic job trackers: ReboundIQ combines runway, evidence,
+  applications, interviews, agent approvals, export/delete, and AI provider
+  controls instead of stopping at status columns.
+- Versus generic resume tools: resume versions connect to source inputs, JD
+  signals, proof assets, and citations so missing evidence can be marked rather
+  than invented.
+- Versus cloud-first AI career assistants: local Ollama is the default, and
+  external AI requires consent, redaction, and audit logging.
+- Versus automation-first outreach products: agents orchestrate and request
+  approval; they do not auto-apply, auto-send, or silently edit artifacts.
+
+Use [docs/DEMO_RELEASE_CHECKLIST.md](docs/DEMO_RELEASE_CHECKLIST.md) before
+recording, demoing, or shipping the local-first career recovery demo.
+
 ## Architecture
 
 | Layer | Stack | Notes |
@@ -189,6 +306,8 @@ for the implementation rules that coding agents and contributors must preserve.
 - [Local AI Setup](docs/LOCAL_AI_SETUP.md)
 - [Agent Backend](docs/AGENT_BACKEND.md)
 - [Feature Slice Notes](docs/FEATURE_SLICE_2026_06_18.md)
+- [Demo Release Checklist](docs/DEMO_RELEASE_CHECKLIST.md)
+- [Demo Persona Fixture](docs/demo/reboundiq_demo_persona.json)
 - [Agent Guidelines](AGENTS.md)
 
 ## Roadmap

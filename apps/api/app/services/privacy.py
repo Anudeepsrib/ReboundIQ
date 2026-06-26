@@ -52,6 +52,26 @@ EXPORT_MODELS = [
     ActionAuditLog,
 ]
 
+DELETE_MODELS = [
+    ActionAuditLog,
+    AgentApprovalRequest,
+    AgentToolCall,
+    AgentCampaign,
+    RunwaySnapshot,
+    ProofAsset,
+    InterviewSession,
+    ApplicationRecord,
+    DocumentChunk,
+    ResumeVersion,
+    Resume,
+    AIRequest,
+    MemoryRecord,
+    MemoryCandidate,
+    MemoryReflection,
+    ConsentRecord,
+    UserProfile,
+]
+
 
 def _normalize(value: Any) -> Any:
     if isinstance(value, (datetime, date)):
@@ -158,26 +178,8 @@ async def delete_user_account(
     storage = get_storage()
     deleted_files = await storage.delete_prefix(f"users/{user_id}")
 
-    delete_order = [
-        ActionAuditLog,
-        AgentApprovalRequest,
-        AgentToolCall,
-        AgentCampaign,
-        ProofAsset,
-        InterviewSession,
-        ApplicationRecord,
-        DocumentChunk,
-        ResumeVersion,
-        Resume,
-        AIRequest,
-        MemoryRecord,
-        MemoryCandidate,
-        MemoryReflection,
-        ConsentRecord,
-        UserProfile,
-    ]
     deleted_rows: dict[str, int] = {}
-    for model in delete_order:
+    for model in DELETE_MODELS:
         result = await db.execute(delete(model).where(model.user_id == user_id))
         deleted_rows[model.__tablename__] = int(result.rowcount or 0)
 

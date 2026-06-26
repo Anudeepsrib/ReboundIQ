@@ -1,0 +1,484 @@
+{
+  "schema_version": "2026-06-demo-v1",
+  "persona": {
+    "full_name": "Maya Patel",
+    "email": "maya.patel.demo@reboundiq.local",
+    "password": "ReboundIQ-demo-2026!",
+    "scenario": "Senior backend and applied AI engineer laid off after a platform reorganization; targeting staff-level AI infrastructure and backend platform roles.",
+    "privacy_posture": "Local Ollama by default. External AI, sensitive memory, and visa processing consent are all disabled at seed time.",
+    "headline": "Senior Backend and AI Platform Engineer",
+    "summary": "Built production RAG services, internal developer platforms, and retrieval evaluation workflows. Looking for staff-level AI infrastructure roles with clear human review boundaries.",
+    "skills": {
+      "languages": ["Python", "TypeScript", "SQL"],
+      "platform": ["FastAPI", "Postgres", "pgvector", "Next.js", "Docker"],
+      "ai": ["RAG", "LangGraph", "evaluation harnesses", "redaction", "local LLMs"],
+      "leadership": ["technical strategy", "incident review", "mentoring", "cross-functional delivery"]
+    },
+    "preferences": {
+      "target_roles": ["Staff AI Platform Engineer", "Senior Backend Engineer", "RAG Platform Lead"],
+      "locations": ["Remote US", "Chicago hybrid"],
+      "constraints": ["No auto-apply", "No fabricated metrics", "Show citations before artifact use"],
+      "ai_settings": {
+        "provider": "ollama",
+        "chat_model": "gemma3:4b",
+        "embedding_model": "nomic-embed-text",
+        "base_url": "http://localhost:11434"
+      }
+    },
+    "consents": {
+      "external_ai": false,
+      "memory_sensitive": false,
+      "visa_processing": false
+    }
+  },
+  "journey": [
+    {
+      "stage": "Layoff intake",
+      "route": "/onboarding",
+      "user_goal": "Convert a stressful layoff into a private operating plan.",
+      "product_moment": "Maya signs in, confirms local-first defaults, and sees that external AI and auto-actions are disabled."
+    },
+    {
+      "stage": "Runway clarity",
+      "route": "/runway",
+      "user_goal": "Understand burn rate and choose a sustainable weekly search pace.",
+      "product_moment": "Runway snapshots show planning guidance and risk signals without legal, tax, financial, or benefits advice."
+    },
+    {
+      "stage": "Resume evidence",
+      "route": "/resume",
+      "user_goal": "Ground resume versions in user-provided facts.",
+      "product_moment": "The original resume is preserved, parsed, chunked, and versioned with source inputs."
+    },
+    {
+      "stage": "JD targeting",
+      "route": "/jobs",
+      "user_goal": "Compare a job description against current evidence before applying.",
+      "product_moment": "JD match returns fit signals, missing evidence, and citation requirements through the AI Gateway."
+    },
+    {
+      "stage": "Application pipeline",
+      "route": "/applications",
+      "user_goal": "Track roles, stages, follow-ups, sponsorship signals, and linked resume versions.",
+      "product_moment": "Every application row is user-owned and deterministic; no application is submitted by the system."
+    },
+    {
+      "stage": "Proof-of-work",
+      "route": "/proof",
+      "user_goal": "Build reusable STAR stories and portfolio assets from cited evidence.",
+      "product_moment": "Proof assets stay draft, ready, or approved and show citations before use."
+    },
+    {
+      "stage": "Interview readiness",
+      "route": "/interview",
+      "user_goal": "Practice the loops that matter for active opportunities.",
+      "product_moment": "Interview sessions track focus areas, scores, and feedback without claiming hiring outcomes."
+    },
+    {
+      "stage": "Supervised campaign",
+      "route": "/campaigns",
+      "user_goal": "Coordinate search activity without losing human control.",
+      "product_moment": "CareerCampaignAgent orchestrates typed tools, runs ComplianceGuard, and creates approval requests instead of auto-sending."
+    },
+    {
+      "stage": "Provider and privacy review",
+      "route": "/settings/ai-providers",
+      "user_goal": "Switch local Ollama models and verify consent boundaries.",
+      "product_moment": "Remote model base URLs are rejected; external consent remains separate and off by default."
+    },
+    {
+      "stage": "Offer decision support",
+      "route": "/dashboard",
+      "user_goal": "Use readiness, follow-ups, and offer-stage evidence to make a human decision.",
+      "product_moment": "ReboundIQ provides planning guidance and risk signals only, with reminders to seek qualified professional advice for employment, immigration, tax, or financial decisions."
+    }
+  ],
+  "runway_snapshots": [
+    {
+      "title": "Base recovery plan",
+      "scenario": "base",
+      "risk_level": "moderate",
+      "monthly_expenses": 5800,
+      "savings_balance": 23000,
+      "severance_amount": 9000,
+      "unemployment_amount": 0,
+      "target_months": 5.5,
+      "assumptions_json": {
+        "search_hours_per_week": 24,
+        "networking_blocks_per_week": 3,
+        "professional_advice_note": "Planning guidance only; verify benefits, taxes, immigration, and offer terms with qualified professionals."
+      },
+      "action_items_json": [
+        "Freeze nonessential spend until two late-stage loops are active.",
+        "Schedule two warm intro blocks each week.",
+        "Review benefits, immigration, tax, and financial questions with qualified professionals."
+      ],
+      "disclaimer_acknowledged": true
+    }
+  ],
+  "resume": {
+    "original_filename": "maya-patel-demo-resume.txt",
+    "mime_type": "text/plain",
+    "parsed_text": "Maya Patel - Senior Backend and AI Platform Engineer. Built local-first RAG evaluation services, FastAPI APIs, Postgres/pgvector retrieval stores, and Next.js operational consoles. Led incident review and mentored engineers. All details are synthetic for the ReboundIQ demo.",
+    "parsed_json": {
+      "name": "Maya Patel",
+      "target_level": "Staff",
+      "recent_roles": ["Senior Backend Engineer", "AI Platform Engineer"],
+      "evidence_notes": [
+        "RAG evaluation harness for internal support workflows",
+        "FastAPI service migration with auditable request logs",
+        "Privacy-preserving local LLM prototype"
+      ]
+    },
+    "chunks": [
+      {
+        "chunk_index": 0,
+        "text": "Built production RAG services with local-first provider defaults, redaction gates, and evaluation coverage.",
+        "meta": {"source": "resume", "section": "AI platform"}
+      },
+      {
+        "chunk_index": 1,
+        "text": "Led backend platform reliability work across FastAPI, Postgres, Docker, and typed service boundaries.",
+        "meta": {"source": "resume", "section": "Backend platform"}
+      }
+    ],
+    "versions": [
+      {
+        "key": "staff-ai-platform",
+        "version_name": "Staff AI Platform v2",
+        "target_role": "Staff AI Platform Engineer",
+        "ats_score": 86,
+        "content_json": {
+          "summary": "Staff-level backend engineer specializing in local-first AI systems, retrieval evaluation, and safe developer platforms.",
+          "bullets": [
+            "Built a synthetic RAG evaluation suite with groundedness, redaction, schema, and safety checks.",
+            "Migrated internal APIs to typed FastAPI services with user-scoped audit trails.",
+            "Partnered with product and design to turn AI governance constraints into visible workflow states."
+          ]
+        },
+        "source_inputs": {
+          "resume_chunks": [0, 1],
+          "citations_required": true,
+          "missing_metrics_note": "Do not invent latency, cost, hiring, or revenue metrics."
+        }
+      }
+    ]
+  },
+  "applications": [
+    {
+      "key": "northstar-ai",
+      "company": "Northstar AI Labs",
+      "role": "Staff AI Platform Engineer",
+      "status": "tech",
+      "source_url": "https://jobs.example.local/northstar-ai-staff-platform",
+      "location": "Remote US",
+      "salary_range": "$190k-$230k",
+      "resume_version_key": "staff-ai-platform",
+      "jd_snapshot": "Build privacy-preserving AI platform services, RAG evaluation, and backend APIs.",
+      "notes": "Strong fit on local-first RAG and evaluation. Needs clearer evidence for platform governance.",
+      "next_step": "Prepare system design interview evidence packet",
+      "next_step_at": "2026-07-01T15:00:00Z",
+      "fit_score": 88,
+      "sponsorship_signal": "unknown",
+      "metadata_json": {
+        "demo_stage": "interview_loop",
+        "claim_policy": "cite_or_mark_missing"
+      }
+    },
+    {
+      "key": "healthgrid",
+      "company": "HealthGrid Systems",
+      "role": "Senior Backend Engineer, AI Workflows",
+      "status": "recruiter",
+      "source_url": "https://jobs.example.local/healthgrid-backend-ai",
+      "location": "Chicago hybrid",
+      "salary_range": "$165k-$205k",
+      "resume_version_key": "staff-ai-platform",
+      "jd_snapshot": "Own workflow APIs, agent approvals, audit logging, and regulated data boundaries.",
+      "notes": "Good backend and governance match. Ask recruiter about on-call and data handling.",
+      "next_step": "Recruiter follow-up",
+      "next_step_at": "2026-06-29T18:00:00Z",
+      "fit_score": 81,
+      "sponsorship_signal": "not stated",
+      "metadata_json": {
+        "demo_stage": "recruiter",
+        "claim_policy": "cite_or_mark_missing"
+      }
+    },
+    {
+      "key": "civicstack",
+      "company": "CivicStack",
+      "role": "Platform Lead, Search and Retrieval",
+      "status": "saved",
+      "source_url": "https://jobs.example.local/civicstack-retrieval",
+      "location": "Remote US",
+      "salary_range": "$175k-$215k",
+      "resume_version_key": "staff-ai-platform",
+      "jd_snapshot": "Lead search platform modernization and retrieval quality evaluation.",
+      "notes": "Saved for later. Needs more proof around search relevance and roadmap leadership.",
+      "next_step": "Analyze JD against proof assets",
+      "next_step_at": "2026-07-03T16:00:00Z",
+      "fit_score": 73,
+      "sponsorship_signal": "sponsor-friendly language absent",
+      "metadata_json": {
+        "demo_stage": "saved",
+        "claim_policy": "cite_or_mark_missing"
+      }
+    }
+  ],
+  "proof_assets": [
+    {
+      "title": "RAG evaluation harness STAR story",
+      "asset_type": "star_story",
+      "status": "ready",
+      "summary": "A concise story about turning vague AI quality concerns into measurable, reviewable evaluation gates.",
+      "content_json": {
+        "situation": "Support workflows needed safer AI answers.",
+        "task": "Create a repeatable evaluation harness without sending private data to external providers.",
+        "action": "Defined golden cases, redaction checks, schema checks, and groundedness thresholds.",
+        "result": "Created a reviewable quality gate. Exact business metrics are intentionally marked missing in the demo."
+      },
+      "citations_json": [
+        {"source": "resume_chunk:0", "claim": "RAG evaluation and redaction checks"},
+        {"source": "demo_note", "claim": "Business impact metrics unavailable; do not fabricate"}
+      ],
+      "linked_application_key": "northstar-ai",
+      "metadata_json": {"approval_required": true}
+    },
+    {
+      "title": "Privacy-first AI platform architecture note",
+      "asset_type": "architecture_note",
+      "status": "draft",
+      "summary": "Architecture note explaining gateway, redaction, local provider defaults, audit records, and human approval checkpoints.",
+      "content_json": {
+        "sections": ["Context", "Gateway boundary", "Consent gates", "Audit tables", "Human approval"],
+        "missing_inputs": ["No production latency claim", "No employer-confidential data"]
+      },
+      "citations_json": [
+        {"source": "resume_chunk:1", "claim": "Backend platform services"},
+        {"source": "application:northstar-ai", "claim": "Platform governance relevance"}
+      ],
+      "linked_application_key": "northstar-ai",
+      "metadata_json": {"approval_required": true}
+    }
+  ],
+  "interviews": [
+    {
+      "target_role": "Staff AI Platform Engineer",
+      "company": "Northstar AI Labs",
+      "interview_type": "system_design",
+      "status": "scheduled",
+      "scheduled_at": "2026-07-02T19:00:00Z",
+      "score": 78,
+      "focus_areas_json": ["RAG evaluation design", "user isolation", "approval checkpoints"],
+      "question_log_json": [
+        {
+          "question": "Design a privacy-preserving RAG evaluation platform.",
+          "answer_note": "Use local-first provider defaults, goldens, citations, redaction, and audit logs."
+        }
+      ],
+      "feedback_json": {
+        "strength": "Clear safety boundary.",
+        "next_practice": "Quantify tradeoffs without inventing metrics."
+      },
+      "linked_application_key": "northstar-ai",
+      "metadata_json": {"demo_loop": "system_design"}
+    },
+    {
+      "target_role": "Senior Backend Engineer, AI Workflows",
+      "company": "HealthGrid Systems",
+      "interview_type": "behavioral",
+      "status": "planned",
+      "scheduled_at": null,
+      "score": null,
+      "focus_areas_json": ["cross-functional delivery", "incident review", "handling ambiguity"],
+      "question_log_json": [],
+      "feedback_json": {},
+      "linked_application_key": "healthgrid",
+      "metadata_json": {"demo_loop": "behavioral"}
+    }
+  ],
+  "campaign": {
+    "goal": "Land a staff-level AI platform or senior backend role in 90 days using only user-approved artifacts.",
+    "status": "active",
+    "metadata_json": {
+      "cadence": "3 high-fit applications per week, 2 warm intros, 2 interview practice blocks",
+      "safety": ["no auto-apply", "no auto-send", "ComplianceGuard before artifact approval"],
+      "last_state": "waiting_for_human_approval"
+    },
+    "approval_requests": [
+      {
+        "artifact_type": "plan",
+        "artifact_json": {
+          "title": "Week 1 recovery sprint",
+          "actions": ["Finish Northstar evidence packet", "Prepare HealthGrid recruiter questions", "Review runway assumptions"]
+        },
+        "artifact_ref": "demo:campaign:week-1-plan",
+        "status": "pending",
+        "notes": "Human approval required before this plan is treated as accepted."
+      },
+      {
+        "artifact_type": "outreach_email",
+        "artifact_json": {
+          "subject": "Intro request for AI platform role",
+          "draft": "Draft only. User must review citations and send manually."
+        },
+        "artifact_ref": "demo:campaign:outreach-email",
+        "status": "pending",
+        "notes": "No auto-send. ComplianceGuard must pass before use."
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "application_summary",
+        "input_json": {"application_key": "northstar-ai"},
+        "output_json": {"status": "tech", "fit_score": 88, "missing_evidence": ["platform governance metric"]},
+        "request_id": "demo-campaign-tool-1",
+        "latency_ms": 42
+      }
+    ]
+  },
+  "consent_records": [
+    {
+      "consent_type": "external_ai",
+      "granted": false,
+      "consent_text": "External AI disabled for demo. Local Ollama is the default path.",
+      "revoked_at": "2026-06-26T00:00:00Z"
+    },
+    {
+      "consent_type": "memory_category:sensitive",
+      "granted": false,
+      "consent_text": "Sensitive memory disabled until the user explicitly opts in.",
+      "revoked_at": "2026-06-26T00:00:00Z"
+    }
+  ],
+  "ai_audit_samples": [
+    {
+      "request_id": "demo-local-provider-test",
+      "provider": "ollama",
+      "model": "gemma3:4b",
+      "prompt_preview": "user: Reply with OK only.",
+      "response_preview": "OK",
+      "usage_json": {"endpoint": "chat", "demo": true},
+      "external": false,
+      "redacted": true,
+      "consent_id": null
+    }
+  ],
+  "outcome_kpis": [
+    {
+      "name": "Time to first credible plan",
+      "demo_value": "15 minutes",
+      "why_it_matters": "Turns layoff shock into a concrete weekly operating loop."
+    },
+    {
+      "name": "Evidence coverage",
+      "demo_value": "2 ready or draft proof assets linked to active applications",
+      "why_it_matters": "Moves beyond generic resumes into cited artifacts."
+    },
+    {
+      "name": "Pipeline health",
+      "demo_value": "3 active opportunities across saved, recruiter, and technical stages",
+      "why_it_matters": "Shows whether the search has enough stage diversity."
+    },
+    {
+      "name": "Human control",
+      "demo_value": "2 pending approval checkpoints, 0 auto-sent artifacts",
+      "why_it_matters": "Keeps the product safe and enterprise-trustworthy."
+    },
+    {
+      "name": "Privacy posture",
+      "demo_value": "100% local AI in seed data, 0 external AI calls",
+      "why_it_matters": "Makes privacy a measurable product promise."
+    },
+    {
+      "name": "Interview readiness",
+      "demo_value": "78/100 current system design practice score",
+      "why_it_matters": "Connects job targeting to the next coaching loop without guaranteeing outcomes."
+    }
+  ],
+  "screenshots": [
+    {
+      "workflow": "Dashboard command center",
+      "route": "/dashboard",
+      "path": "docs/demo/screenshots/dashboard.svg",
+      "headline": "71% readiness",
+      "highlights": ["5.5 month runway", "3 active applications", "2 pending approvals"]
+    },
+    {
+      "workflow": "Runway planner",
+      "route": "/runway",
+      "path": "docs/demo/screenshots/runway.svg",
+      "headline": "Moderate runway risk",
+      "highlights": ["Base recovery plan", "$5,800 monthly expenses", "Professional advice reminder"]
+    },
+    {
+      "workflow": "Resume and JD match",
+      "route": "/resume + /jobs",
+      "path": "docs/demo/screenshots/resume-jd.svg",
+      "headline": "Staff AI Platform v2",
+      "highlights": ["86 ATS score", "Citations required", "Missing metrics marked"]
+    },
+    {
+      "workflow": "Application tracker",
+      "route": "/applications",
+      "path": "docs/demo/screenshots/applications.svg",
+      "headline": "3 active opportunities",
+      "highlights": ["Northstar in tech stage", "HealthGrid recruiter follow-up", "No auto-apply"]
+    },
+    {
+      "workflow": "Proof builder",
+      "route": "/proof",
+      "path": "docs/demo/screenshots/proof.svg",
+      "headline": "2 cited proof assets",
+      "highlights": ["STAR story ready", "Architecture note draft", "Approval required"]
+    },
+    {
+      "workflow": "Interview prep",
+      "route": "/interview",
+      "path": "docs/demo/screenshots/interview.svg",
+      "headline": "System design loop scheduled",
+      "highlights": ["78/100 practice score", "RAG evaluation focus", "No outcome guarantee"]
+    },
+    {
+      "workflow": "Supervised campaign",
+      "route": "/campaigns",
+      "path": "docs/demo/screenshots/campaigns.svg",
+      "headline": "Waiting for human approval",
+      "highlights": ["CareerCampaignAgent active", "ComplianceGuard required", "0 auto-sent messages"]
+    },
+    {
+      "workflow": "AI provider settings",
+      "route": "/settings/ai-providers",
+      "path": "docs/demo/screenshots/ai-settings.svg",
+      "headline": "Ollama gemma3:4b",
+      "highlights": ["Remote base URLs rejected", "External AI disabled", "Redaction required"]
+    },
+    {
+      "workflow": "Privacy export and delete",
+      "route": "/settings/privacy",
+      "path": "docs/demo/screenshots/privacy.svg",
+      "headline": "Export or hard delete",
+      "highlights": ["JSON export", "Storage prefix delete", "Consent records included"]
+    }
+  ],
+  "competitive_differentiation": [
+    {
+      "against": "Generic job trackers",
+      "difference": "ReboundIQ combines runway, evidence, applications, interviews, agent approvals, and privacy controls instead of stopping at status columns."
+    },
+    {
+      "against": "Generic resume tools",
+      "difference": "Resume versions are tied to source inputs, JD signals, proof assets, and citations so the product can mark missing evidence instead of fabricating claims."
+    },
+    {
+      "against": "Cloud-first AI career assistants",
+      "difference": "Local Ollama is the default. External AI requires explicit consent, redaction, and audit logging."
+    },
+    {
+      "against": "Automation-first outreach products",
+      "difference": "Agents orchestrate and request approval; they do not auto-apply, auto-send, or silently edit artifacts."
+    }
+  ],
+  "legal_disclaimer": "ReboundIQ provides planning guidance and risk signals only. It is not legal, immigration, tax, financial, medical, hiring, or employment advice. Users should review all artifacts and consult qualified professionals for employment agreements, immigration status, tax obligations, financial decisions, benefits, and offer terms."
+}
